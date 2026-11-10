@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens — matched to the Elevate proposal deck:
+   navy #051025 ground, purple #6f34a2 → mauve #b76788 → orange #ef9256
+   gradient signature, soft grey #f4f4f7 cards, geometric display type.
+   Chart series colours are CVD-validated in both modes (see README).
+--------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  --font-display: "Poppins", "Century Gothic", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Carlito", Calibri, "Segoe UI", system-ui, sans-serif;
+
+  --grad: linear-gradient(90deg, #6f34a2 0%, #b76788 55%, #ef9256 100%);
+
+  /* the proposal's cover navy — the sidebar wears it in both themes */
+  --side-bg: #051025;
+  --side-card: #0d1730;
+  --side-ink: #f2f3f8;
+  --side-muted: #8b93ad;
+  --side-border: rgba(255, 255, 255, 0.08);
+
+  --page: #ffffff;
+  --surface-1: #ffffff;
+  --surface-2: #f4f4f7;
+  --card: #f4f4f7;
+  --card-border: rgba(20, 25, 58, 0);
+  --text-primary: #262b3a;
+  --text-secondary: #565d6b;
+  --text-muted: #7d848f;
+  --grid: #e5e5ec;
+  --baseline: #c7c9d6;
+  --border: rgba(20, 25, 58, 0.1);
+
+  --series-1: #7a3fb0;
+  --series-2: #e0761f;
+  --series-3: #1baf7a;
+  --series-4: #3d76d6;
+  --series-5: #d55181;
+
+  --seq-100: #ece0f7;
+  --seq-250: #c9a9e8;
+  --seq-400: #8b52c6;
+  --seq-450: #7a3fb0;
+  --seq-600: #542887;
+
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+  --delta-up-good: #006300;
+
+  --accent: #6f34a2;
+  --accent-ink: #ffffff;
+  --eyebrow: #6f34a2;
+  --meter-track: #e8dcf5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+
+    --page: #030a1c;
+    --surface-1: #0d1730;
+    --surface-2: #142042;
+    --card: #0d1730;
+    --card-border: rgba(255, 255, 255, 0.07);
+    --text-primary: #f2f3f8;
+    --text-secondary: #b7bdcf;
+    --text-muted: #7d859c;
+    --grid: #1c2648;
+    --baseline: #2e3a63;
+    --border: rgba(255, 255, 255, 0.1);
+
+    --series-1: #9a67d8;
+    --series-2: #d9782a;
+    --series-3: #1fa87e;
+    --series-4: #5a8ae0;
+    --series-5: #d9628f;
+
+    --seq-100: #2b1c52;
+    --seq-250: #3a2670;
+    --seq-400: #9a67d8;
+    --seq-450: #9a67d8;
+    --seq-600: #c9a9e8;
+
+    --delta-up-good: #0ca30c;
+
+    --accent: #a97fe0;
+    --accent-ink: #051025;
+    --eyebrow: #ef9256;
+    --meter-track: #2b1c52;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page: #030a1c;
+  --surface-1: #0d1730;
+  --surface-2: #142042;
+  --card: #0d1730;
+  --card-border: rgba(255, 255, 255, 0.07);
+  --text-primary: #f2f3f8;
+  --text-secondary: #b7bdcf;
+  --text-muted: #7d859c;
+  --grid: #1c2648;
+  --baseline: #2e3a63;
+  --border: rgba(255, 255, 255, 0.1);
+
+  --series-1: #9a67d8;
+  --series-2: #d9782a;
+  --series-3: #1fa87e;
+  --series-4: #5a8ae0;
+  --series-5: #d9628f;
+
+  --seq-100: #2b1c52;
+  --seq-250: #3a2670;
+  --seq-400: #9a67d8;
+  --seq-450: #9a67d8;
+  --seq-600: #c9a9e8;
+
+  --delta-up-good: #0ca30c;
+
+  --accent: #a97fe0;
+  --accent-ink: #051025;
+  --eyebrow: #ef9256;
+  --meter-track: #2b1c52;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+.disp {
+  font-family: var(--font-display);
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--eyebrow);
+}
+
+.grad-rule {
+  width: 44px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--grad);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--seq-100);
+}
