@@ -1,5 +1,5 @@
 /**
- * The levers are the buying rules the shop controls without calling us —
+ * The levers are the buying rules the business controls without calling us —
  * how much of the missed demand to back, the sell-through you plan for, how
  * cautious to be on a big step-up. Every screen recomputes when one moves.
  */
@@ -17,7 +17,9 @@ export interface Levers {
   maxStepUp: number;
   /** round buys to whole size runs */
   roundToSizeRun: boolean;
-  /** the shop's rule of thumb today: last buy + this % when a line sold out */
+  /** own label: round buys up to the factory's minimum order */
+  applyMoq: boolean;
+  /** the buyer's rule of thumb today: last buy + this % when a line sold out */
   usualRulePct: number;
   /** SS27 open-to-buy, at cost */
   budget: number;
@@ -34,8 +36,9 @@ export const DEFAULT_LEVERS: Levers = {
   applyTrend: true,
   maxStepUp: 3,
   roundToSizeRun: true,
+  applyMoq: true,
   usualRulePct: 40,
-  budget: 31000,
+  budget: 46000,
   countWaiting: true,
   agedDays: 180,
 };

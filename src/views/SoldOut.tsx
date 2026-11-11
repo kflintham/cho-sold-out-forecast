@@ -109,7 +109,7 @@ export function SoldOut() {
 
       <Card
         title={`${fc.line.name} · ${fc.brand.name}`}
-        subtitle={`SS26 · ${fc.seasonWeeks}-week full-price season from ${fmtDate(seasonWeekDate("SS26", 1))} · ${fc.brand.topUp && fc.line.core ? `${fc.brand.name} restocks this line in ${fc.brand.topUpLeadWeeks} weeks` : `${fc.brand.name} had no stock to top up`}`}
+        subtitle={`SS26 · ${fc.seasonWeeks}-week full-price season from ${fmtDate(seasonWeekDate("SS26", 1))} · ${fc.brand.topUp && fc.line.core ? `${fc.source} ${fc.brand.ownLabel ? "can repeat" : "restocks"} this line in ${fc.leadWeeks} weeks` : `${fc.brand.name} had no stock to top up`}`}
         actions={
           <select
             aria-label="Choose a sold-out line"

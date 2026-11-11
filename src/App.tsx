@@ -8,6 +8,7 @@ import { Deliveries } from "./views/Deliveries";
 import { OrderTimeline } from "./views/OrderTimeline";
 import { Advisories } from "./views/Advisories";
 import { Scenarios } from "./views/Scenarios";
+import { OwnLabel } from "./views/OwnLabel";
 import { LeversView } from "./views/LeversView";
 import { LineDrawer } from "./components/LineDrawer";
 
@@ -56,6 +57,12 @@ const ICONS: Record<View, ReactNode> = {
       <circle cx="12.8" cy="8" r="2" fill="var(--side-bg)" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   ),
+  ownlabel: (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+      <path d="M1.5 14.5V7l4 2.5V7l4 2.5V3.5h5v11z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <rect x="11.5" y="5.5" width="1.6" height="1.6" fill="currentColor" />
+    </svg>
+  ),
   scenarios: (
     <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
       <path d="M2 8h4l1.5-3 2 6L11 8h3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -83,6 +90,7 @@ const NAV: { view: View; label: string }[] = [
   { view: "buy", label: "SS27 buy plan" },
   { view: "deliveries", label: "Deliveries" },
   { view: "timeline", label: "Order timeline" },
+  { view: "ownlabel", label: "Own label & factories" },
   { view: "advisories", label: "Advisories" },
   { view: "scenarios", label: "Scenarios" },
   { view: "levers", label: "Levers" },
@@ -246,6 +254,7 @@ export default function App() {
           {view === "timeline" && <OrderTimeline />}
           {view === "advisories" && <Advisories />}
           {view === "scenarios" && <Scenarios />}
+          {view === "ownlabel" && <OwnLabel />}
           {view === "levers" && <LeversView />}
         </main>
       </div>

@@ -43,7 +43,7 @@ export function Overview() {
       <PageHeader
         eyebrow={`Overview · as of ${fmtDate(TODAY.toISOString().slice(0, 10))}`}
         title="Where sell-outs are costing you"
-        sub="Last season's sales, the demand the sell-outs hid, and what's happening this season — from one view of the till, the online shop and the stock file."
+        sub="Last season's sales, the demand the sell-outs hid, and what's happening this season — from one view of the stores' tills, the website and the stock file."
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

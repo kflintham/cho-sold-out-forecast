@@ -72,7 +72,7 @@ export function LeversView() {
           />
           <LeverRow
             name="Count customers waiting for a line"
-            description="Notify-me sign-ups online and requests taken in the shops count as demand on a re-order — they're customers who've already said yes."
+            description="Notify-me sign-ups online and requests taken in store count as demand on a re-order — they're customers who've already said yes."
             control={<Toggle checked={levers.countWaiting} onChange={(v) => setLevers({ countWaiting: v })} label="Count waiting customers" />}
           />
           <LeverRow
@@ -103,6 +103,11 @@ export function LeversView() {
             control={<Toggle checked={levers.roundToSizeRun} onChange={(v) => setLevers({ roundToSizeRun: v })} label="Round to size runs" />}
           />
           <LeverRow
+            name="Own label: round to factory minimums"
+            description="Factory orders go up to the minimum per style and colour (e.g. 150 in Ningbo). Off shows what the forecast alone would order."
+            control={<Toggle checked={levers.applyMoq} onChange={(v) => setLevers({ applyMoq: v })} label="Round to factory minimums" />}
+          />
+          <LeverRow
             name="Your rule of thumb today"
             description="What you'd add to last season's order when a line sold out — shown alongside the plan for comparison."
             control={<Segmented options={USUAL_RULE_OPTIONS} value={levers.usualRulePct} onChange={(v) => setLevers({ usualRulePct: v })} />}
@@ -120,8 +125,8 @@ export function LeversView() {
                 <input
                   type="range"
                   aria-label="SS27 open-to-buy"
-                  min={20000}
-                  max={45000}
+                  min={30000}
+                  max={60000}
                   step={500}
                   value={levers.budget}
                   onChange={(e) => setLevers({ budget: Number(e.target.value) })}

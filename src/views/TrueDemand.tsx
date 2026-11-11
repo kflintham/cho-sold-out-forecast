@@ -54,7 +54,7 @@ export function TrueDemand() {
               </div>
               <p className="mt-0.5 max-w-2xl text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
                 {levers.countWaiting
-                  ? `${blind.online} signed up to “notify me” online and ${blind.inStore} asked in the shops. They're real orders waiting to happen: re-orders include them, and where the brand can't restock they're the first people to offer an alternative.`
+                  ? `${blind.online} signed up to “notify me” online and ${blind.inStore} asked in store. They're real orders waiting to happen: re-orders include them, and where the brand can't restock they're the first people to offer an alternative.`
                   : `Re-orders are ${fmtInt(blind.units)} units lighter, and the customers who asked are nobody's job to call back. Flip the switch to count them.`}
               </p>
             </div>
@@ -69,7 +69,7 @@ export function TrueDemand() {
       {bridge && (
         <Card
           title={`Where the gap comes from — ${bridge.fc.line.name}`}
-          subtitle={`${bridge.fc.brand.name} · rest of the season, weeks ${bridge.fc.weeksTraded + 1}–${bridge.fc.seasonWeeks} · ${bridge.fc.canTopUp ? `brand restocks in ${bridge.fc.brand.topUpLeadWeeks} weeks` : "brand can't restock"}`}
+          subtitle={`${bridge.fc.brand.name} · rest of the season, weeks ${bridge.fc.weeksTraded + 1}–${bridge.fc.seasonWeeks} · ${bridge.fc.canTopUp ? `${bridge.fc.source} ${bridge.fc.brand.ownLabel ? "can repeat" : "restocks"} in ${bridge.fc.leadWeeks} weeks` : "brand can't restock"}`}
           actions={
             <select
               aria-label="Choose a line"
@@ -145,7 +145,7 @@ export function TrueDemand() {
                       </span>
                     </td>
                     <td className="pr-3 text-right" style={{ color: "var(--text-secondary)" }}>
-                      {f.canTopUp ? `${f.brand.topUpLeadWeeks} wks` : "no"}
+                      {f.canTopUp ? `${f.leadWeeks} wks` : "no"}
                     </td>
                     <td className="tnum pr-3 text-right" style={{ color: "var(--text-primary)" }}>
                       {f.waiting > 0 ? f.waiting : "—"}

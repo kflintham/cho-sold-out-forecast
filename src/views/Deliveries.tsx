@@ -35,11 +35,11 @@ export function Deliveries() {
     (t) =>
       t.reorder > 0 &&
       (t.fc.stockNow === 0 ||
-        (t.fc.projectedSellOutWeek ?? 99) - t.fc.brand.topUpLeadWeeks - 1 <= t.fc.weeksTraded + 1),
+        (t.fc.projectedSellOutWeek ?? 99) - t.fc.leadWeeks - 1 <= t.fc.weeksTraded + 1),
   );
 
   // Re-order basket per restocking brand, against its carriage-paid minimum.
-  const baskets = BRANDS.filter((b) => b.topUp).map((b) => {
+  const baskets = BRANDS.filter((b) => b.topUp && !b.ownLabel).map((b) => {
     const perf = BRAND_PERFORMANCE[b.id];
     const lines = toPlace.filter((t) => t.fc.brand.id === b.id);
     const value = lines.reduce((a, t) => a + t.reorder * t.fc.line.cost, 0);
@@ -110,7 +110,7 @@ export function Deliveries() {
                     {t.reorder} × {t.fc.line.name}
                   </div>
                   <div style={{ color: "var(--text-muted)" }}>
-                    {t.fc.brand.name} · lands in {t.fc.brand.topUpLeadWeeks} wks · {fmtMoney(t.reorder * t.fc.line.cost)}
+                    {t.fc.source} · lands in {t.fc.leadWeeks} wks · {fmtMoney(t.reorder * t.fc.line.cost)}
                   </div>
                 </button>
               ))}
@@ -294,7 +294,7 @@ export function Deliveries() {
                     {perf.completePct}%
                   </td>
                   <td className="pr-3 text-right">
-                    {brand.topUp ? <Chip>{brand.topUpLeadWeeks} wks</Chip> : <span style={{ color: "var(--text-muted)" }}>no</span>}
+                    {brand.ownLabel ? <Chip>factory repeat</Chip> : brand.topUp ? <Chip>{brand.topUpLeadWeeks} wks</Chip> : <span style={{ color: "var(--text-muted)" }}>no</span>}
                   </td>
                   <td className="pr-3" style={{ color: "var(--text-secondary)" }}>
                     {perf.note}

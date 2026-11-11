@@ -107,9 +107,9 @@ export function BuyPlan() {
             actions={
               <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
                 <Chip tone={days <= 14 ? "accent" : "neutral"}>
-                  order book closes {fmtDate(brand.orderDeadline)} · {days} days
+                  {brand.ownLabel ? "factory POs by" : "order book closes"} {fmtDate(brand.orderDeadline)} · {days} days
                 </Chip>
-                <Chip>{brand.topUp ? `restocks core lines · ${brand.topUpLeadWeeks} wks` : "no in-season restock"}</Chip>
+                <Chip>{brand.ownLabel ? "own label · factory MOQs" : brand.topUp ? `restocks core lines · ${brand.topUpLeadWeeks} wks` : "no in-season restock"}</Chip>
               </div>
             }
           >

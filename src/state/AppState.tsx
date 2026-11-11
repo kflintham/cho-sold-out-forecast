@@ -11,6 +11,7 @@ export type View =
   | "buy"
   | "deliveries"
   | "timeline"
+  | "ownlabel"
   | "advisories"
   | "scenarios"
   | "levers";

@@ -75,7 +75,7 @@ function scenarioBoughtMore(): ScenarioResult {
             : `Even at the bottom of the range (${n0(fc.demandLow)} customers) all ${alt} sell at full price — there's no downside case to plan for.`,
       },
     ],
-    recommendation: `Treat SS26's ${l.bought} as the floor, not the guide: the SS27 plan backs most of the missed demand for this line and the other sell-outs, with a cap on the step-up while the shop gets used to bigger numbers.`,
+    recommendation: `Treat SS26's ${l.bought} as the floor, not the guide: the SS27 plan backs most of the missed demand for this line and the other sell-outs, with a cap on the step-up while the team gets used to bigger numbers.`,
     assumptions: [
       `${l.name} demand as recovered from its ${fc.inStockWeeks.length} full in-stock weeks and the Harlow & Finch season shape.`,
       "Extra units sell at full price in the order customers arrived; no markdown before season end.",

@@ -1,10 +1,10 @@
 /**
- * Synthetic demo dataset — a multi-brand fashion boutique buying seasonal
+ * Synthetic demo dataset — a multi-brand fashion retailer — online and stores — buying seasonal
  * collections from its brands.
  *
  * Everything here is invented: brands, styles, prices and numbers. Weekly
  * sales are simulated from a hidden "true demand" per line, then capped by
- * the stock the shop actually had — exactly how a sell-out hides demand in
+ * the stock that was actually there — exactly how a sell-out hides demand in
  * real till data. The forecast engine never sees the hidden demand; it has
  * to recover it from sales and stock alone, the same way it would from the
  * EPOS / Shopify history in production.
@@ -41,7 +41,7 @@ export interface Brand {
   seasonWeeks: number;
   /** the brand holds stock for in-season re-orders on its core lines */
   topUp: boolean;
-  /** weeks from a re-order to it landing in the shop */
+  /** weeks from a re-order to it landing in stock */
   topUpLeadWeeks: number;
   /** order book closes for SS27 */
   orderDeadline: string;
@@ -50,6 +50,8 @@ export interface Brand {
   sizes: string;
   /** brand momentum applied to next season's plan */
   trend: number;
+  /** the retailer's own label — designed in house, made at its factories */
+  ownLabel?: boolean;
 }
 
 export const BRANDS: Brand[] = [
@@ -59,12 +61,39 @@ export const BRANDS: Brand[] = [
   { id: "ad", name: "Ardent Denim", base: "Leeds", focus: "Denim", seasonWeeks: 26, topUp: true, topUpLeadWeeks: 2, orderDeadline: "2026-12-11", sizeRun: 6, sizes: "28–38", trend: 0.03 },
   { id: "kc", name: "Kestrel & Co", base: "Northumberland", focus: "Outerwear", seasonWeeks: 18, topUp: false, topUpLeadWeeks: 0, orderDeadline: "2026-11-25", sizeRun: 4, sizes: "S–XL", trend: 0 },
   { id: "sr", name: "Sable & Rye", base: "Bath", focus: "Bags & accessories", seasonWeeks: 24, topUp: true, topUpLeadWeeks: 4, orderDeadline: "2026-12-18", sizeRun: 1, sizes: "one size", trend: 0.1 },
+  // Optional: shown so the team can see the factory side if they run a label of their own.
+  { id: "own", name: "Own label", base: "Designed in house", focus: "Core essentials", seasonWeeks: 22, topUp: true, topUpLeadWeeks: 10, orderDeadline: "2026-12-07", sizeRun: 6, sizes: "XS–XXL", trend: 0.15, ownLabel: true },
 ];
+
+// ---------------------------------------------------------------------------
+// Own-label factories. Repeat production is possible, but only at the
+// factory's lead time and minimum order — a sell-out can't be fixed in a week.
+// ---------------------------------------------------------------------------
+
+export type FreightMode = "sea" | "road" | "van";
+
+export interface Factory {
+  id: string;
+  name: string;
+  location: string;
+  leadWeeks: number;
+  mode: FreightMode;
+  /** minimum units per style and colour */
+  moq: number;
+}
+
+export const FACTORIES: Factory[] = [
+  { id: "nb", name: "Factory A", location: "Ningbo, China", leadWeeks: 14, mode: "sea", moq: 150 },
+  { id: "pt", name: "Factory B", location: "Porto, Portugal", leadWeeks: 8, mode: "road", moq: 90 },
+  { id: "lc", name: "Factory C", location: "Leicester, UK", leadWeeks: 4, mode: "van", moq: 30 },
+];
+
+export const FACTORY_BY_ID: Record<string, Factory> = Object.fromEntries(FACTORIES.map((f) => [f.id, f]));
 
 export const BRAND_BY_ID: Record<string, Brand> = Object.fromEntries(BRANDS.map((b) => [b.id, b]));
 
 // ---------------------------------------------------------------------------
-// Where the shop sells — two shops and the website.
+// Where the business sells — the website and two stores.
 // ---------------------------------------------------------------------------
 
 export type LocationId = "main" | "second" | "online";
@@ -76,8 +105,8 @@ export interface Location {
 }
 
 export const LOCATIONS: Location[] = [
-  { id: "main", name: "Main shop", short: "Main" },
-  { id: "second", name: "Second shop", short: "Second" },
+  { id: "main", name: "Flagship store", short: "Flagship" },
+  { id: "second", name: "Second store", short: "Second" },
   { id: "online", name: "Online", short: "Online" },
 ];
 
@@ -85,8 +114,8 @@ export const LOCATION_IDS: LocationId[] = ["main", "second", "online"];
 
 /** Share of each season's sales by location — online keeps growing. */
 const SEASON_LOC_SHARE: Record<SeasonId, Record<LocationId, number>> = {
-  SS26: { main: 0.52, second: 0.26, online: 0.22 },
-  AW26: { main: 0.46, second: 0.24, online: 0.3 },
+  SS26: { main: 0.34, second: 0.2, online: 0.46 },
+  AW26: { main: 0.3, second: 0.18, online: 0.52 },
 };
 
 export type ByLocation = Record<LocationId, number>;
@@ -121,6 +150,11 @@ export interface Line {
   salesByLoc: Record<LocationId, number[]>;
   /** stock left now (or at season end), by location */
   stockByLoc: ByLocation;
+  /** own label: the factory that makes it */
+  factoryId?: string;
+  /** own label: units per shipping carton and the carton's volume, m³ */
+  cartonQty?: number;
+  cartonM3?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +210,9 @@ interface LineSeed {
   loc?: Partial<ByLocation>;
   /** where the remaining stock actually sits (must sum to stock left) */
   stockLoc?: ByLocation;
+  factoryId?: string;
+  cartonQty?: number;
+  cartonM3?: number;
 }
 
 const SHIRT = "Shirts";
@@ -185,6 +222,7 @@ const TROUSER = "Trousers & denim";
 const OUTER = "Outerwear";
 const ACC = "Bags & accessories";
 const TOP = "Tops & polos";
+const OL = { brandId: "own", core: true };
 
 const SEEDS: LineSeed[] = [
   // ======================= SS26 — last season, finished ====================
@@ -241,7 +279,17 @@ const SEEDS: LineSeed[] = [
   { code: "KC-2710", name: "Harbour Waxed Jacket", brandId: "kc", category: OUTER, season: "AW26", rrp: 275, bought: 16, demand: 36 },
   { code: "KC-2720", name: "Quilted Liner Jacket", brandId: "kc", category: OUTER, season: "AW26", rrp: 165, bought: 24, demand: 11 },
   { code: "SR-2710", name: "Tilda Leather Tote — Burgundy", brandId: "sr", category: ACC, season: "AW26", rrp: 205, bought: 16, demand: 30, core: true },
-  { code: "SR-2730", name: "Cashmere Blend Scarf", brandId: "sr", category: ACC, season: "AW26", rrp: 95, bought: 30, demand: 27, loc: { online: 0.45 } },
+  { code: "SR-2730", name: "Cashmere Blend Scarf", brandId: "sr", category: ACC, season: "AW26", rrp: 95, bought: 30, demand: 27, loc: { online: 0.7 } },
+
+  // ======================= Own label (optional) ============================
+  { code: "OL-2610", name: "Organic Cotton Tee — White", ...OL, category: TOP, season: "SS26", rrp: 30, bought: 120, demand: 150, factoryId: "pt", cartonQty: 10, cartonM3: 0.02 },
+  { code: "OL-2611", name: "Organic Cotton Tee — Black", ...OL, category: TOP, season: "SS26", rrp: 30, bought: 120, demand: 104, factoryId: "pt", cartonQty: 10, cartonM3: 0.02 },
+  { code: "OL-2620", name: "Relaxed Linen Trouser — Sand", ...OL, core: false, category: TROUSER, season: "SS26", rrp: 65, bought: 60, demand: 150, factoryId: "nb", cartonQty: 12, cartonM3: 0.045 },
+  { code: "OL-2640", name: "Merino Crew — Navy", ...OL, core: false, category: KNIT, season: "SS26", rrp: 70, bought: 150, demand: 112, factoryId: "nb", cartonQty: 12, cartonM3: 0.05 },
+  { code: "OL-2630", name: "Washed Twill Overshirt", ...OL, core: false, category: SHIRT, season: "SS26", rrp: 75, bought: 40, demand: 33, factoryId: "lc", cartonQty: 6, cartonM3: 0.035 },
+  { code: "OL-2710", name: "Heavyweight Hoodie — Charcoal", ...OL, category: KNIT, season: "AW26", rrp: 75, bought: 90, demand: 170, factoryId: "pt", cartonQty: 10, cartonM3: 0.055 },
+  { code: "OL-2720", name: "Organic Cotton Tee — White", ...OL, category: TOP, season: "AW26", rrp: 30, bought: 120, demand: 104, factoryId: "pt", cartonQty: 10, cartonM3: 0.02 },
+  { code: "OL-2730", name: "Wool Blend Overshirt", ...OL, core: false, category: SHIRT, season: "AW26", rrp: 95, bought: 60, demand: 28, factoryId: "lc", cartonQty: 6, cartonM3: 0.04 },
 ];
 
 function simulate(seed: LineSeed): Line {
@@ -279,7 +327,7 @@ function simulate(seed: LineSeed): Line {
     // A core line that sells out triggers one re-order with the brand.
     if (stock === 0 && canTopUp && !pendingTopUp && topUps.length === 0) {
       const qty = Math.max(brand.sizeRun, Math.ceil((seed.bought * 0.5) / brand.sizeRun) * brand.sizeRun);
-      pendingTopUp = { week: w + 2 + brand.topUpLeadWeeks, qty };
+      pendingTopUp = { week: w + 2 + (seed.factoryId ? FACTORY_BY_ID[seed.factoryId].leadWeeks : brand.topUpLeadWeeks), qty };
     }
   }
 
@@ -322,6 +370,9 @@ function simulate(seed: LineSeed): Line {
     locShare,
     salesByLoc,
     stockByLoc,
+    factoryId: seed.factoryId,
+    cartonQty: seed.cartonQty,
+    cartonM3: seed.cartonM3,
   };
 }
 
@@ -350,11 +401,11 @@ export function seasonWeekDate(season: SeasonId, week: number): string {
 }
 
 /** SS27 open-to-buy agreed with the bank manager, at cost. */
-export const SS27_BUDGET = 31000;
+export const SS27_BUDGET = 46000;
 
 // ---------------------------------------------------------------------------
 // Customers waiting — "notify me when back" sign-ups online and requests
-// taken on the shop floor, per AW26 line. In production these come from the
+// taken in store, per AW26 line. In production these come from the
 // Shopify back-in-stock app and the EPOS customer-order screen.
 // ---------------------------------------------------------------------------
 
@@ -377,7 +428,7 @@ export const waitingFor = (lineId: string) => {
 };
 
 // ---------------------------------------------------------------------------
-// Open re-orders with brands (stock bought, not yet in the shop).
+// Open re-orders with brands (stock bought, not yet in stock).
 // ---------------------------------------------------------------------------
 
 export type ReorderStage = "placed" | "confirmed" | "dispatched";
@@ -395,7 +446,7 @@ export interface Reorder {
   ref: string;
   lineId: string;
   qty: number;
-  /** AW26 season week it lands in the shop */
+  /** AW26 season week it lands in stock */
   landsWeek: number;
   stage: ReorderStage;
 }
@@ -509,7 +560,7 @@ export const CP_STAGE_LABELS = [
   "Confirmed by brand",
   "Dispatched",
   "Delivered",
-  "On the shop floor",
+  "Live in stores & online",
 ] as const;
 
 export const ORDER_TIMELINES: OrderTimeline[] = [
@@ -524,7 +575,7 @@ export const ORDER_TIMELINES: OrderTimeline[] = [
       { label: "Confirmed by brand", status: "pending", date: "2026-12-04" },
       { label: "Dispatched", status: "pending", date: "2027-02-22" },
       { label: "Delivered", status: "pending", date: "2027-03-01" },
-      { label: "On the shop floor", status: "pending", date: "2027-03-03" },
+      { label: "Live in stores & online", status: "pending", date: "2027-03-03" },
     ],
   },
   {
@@ -538,7 +589,7 @@ export const ORDER_TIMELINES: OrderTimeline[] = [
       { label: "Confirmed by brand", status: "pending" },
       { label: "Dispatched", status: "pending" },
       { label: "Delivered", status: "pending", date: "2027-02-22" },
-      { label: "On the shop floor", status: "pending" },
+      { label: "Live in stores & online", status: "pending" },
     ],
   },
   {
@@ -552,7 +603,7 @@ export const ORDER_TIMELINES: OrderTimeline[] = [
       { label: "Confirmed by brand", status: "pending" },
       { label: "Dispatched", status: "pending" },
       { label: "Delivered", status: "pending", date: "2027-02-08" },
-      { label: "On the shop floor", status: "pending" },
+      { label: "Live in stores & online", status: "pending" },
     ],
   },
   {
@@ -567,7 +618,111 @@ export const ORDER_TIMELINES: OrderTimeline[] = [
       { label: "Confirmed by brand", status: "done", date: "2026-11-02" },
       { label: "Dispatched", status: "in-progress", date: "2026-11-11", note: "with the courier" },
       { label: "Delivered", status: "pending", date: "2026-11-16" },
-      { label: "On the shop floor", status: "pending", date: "2026-11-17" },
+      { label: "Live in stores & online", status: "pending", date: "2026-11-17" },
     ],
   },
 ];
+
+BRAND_PERFORMANCE.own = { otifPct: 82, avgDaysLate: 9, completePct: 96, carriagePaidMin: 0, note: "factory side — see Own label & factories" };
+SS27_DROPS.own = [{ label: "Drop 1", date: "2027-02-01", share: 0.55 }, { label: "Drop 2", date: "2027-03-29", share: 0.45 }];
+
+// ---------------------------------------------------------------------------
+// Own-label production orders, from approved sample to the warehouse. The
+// sea-freight ones show on the shipping globe.
+// ---------------------------------------------------------------------------
+
+export type PoStage = "approved-sample" | "in-production" | "fob" | "on-water" | "customs";
+
+export const PO_STAGES: PoStage[] = ["approved-sample", "in-production", "fob", "on-water", "customs"];
+
+export const PO_STAGE_LABEL: Record<PoStage, string> = {
+  "approved-sample": "Sample approved",
+  "in-production": "In production",
+  fob: "Ready to ship (FOB)",
+  "on-water": "On the water",
+  customs: "Customs",
+};
+
+export interface ProductionPo {
+  id: string;
+  ref: string;
+  factoryId: string;
+  cargo: string;
+  qty: number;
+  etaWeeks: number;
+  status: PoStage;
+  /** forecast line it tops up this season, if any */
+  lineId?: string;
+  /** AW26 season week it lands, for lines tracked this season */
+  landsWeek?: number;
+  vessel?: string;
+}
+
+export const PRODUCTION_POS: ProductionPo[] = [
+  { id: "po-1", ref: "PO-3098", factoryId: "nb", cargo: "Merino Crew — Navy (AW26 replenishment)", qty: 192, etaWeeks: 3, status: "on-water", vessel: "MV Jade Harbour" },
+  { id: "po-2", ref: "PO-3099", factoryId: "nb", cargo: "Waffle Knit Beanie (AW26 accessories)", qty: 480, etaWeeks: 1, status: "customs", vessel: "MV Northern Lark" },
+  { id: "po-3", ref: "PO-3100", factoryId: "nb", cargo: "Recycled Puffer Jacket (AW26 late drop)", qty: 144, etaWeeks: 6, status: "fob", vessel: "MV Coral Meridian" },
+  { id: "po-4", ref: "PO-3101", factoryId: "nb", cargo: "Relaxed Linen Trouser — Sand (SS27)", qty: 312, etaWeeks: 12, status: "in-production" },
+  { id: "po-5", ref: "PO-3107", factoryId: "pt", cargo: "Heavyweight Hoodie — Charcoal (AW26 repeat)", qty: 90, etaWeeks: 0, status: "customs", lineId: "AW26-OL-2710", landsWeek: 11 },
+  { id: "po-6", ref: "PO-3108", factoryId: "pt", cargo: "Organic Cotton Tee range (SS27)", qty: 360, etaWeeks: 11, status: "approved-sample" },
+];
+
+export interface FactoryPerformance {
+  otifPct: number;
+  avgLeadActualWeeks: number;
+  delaysOver7d: number;
+  qualityNote: string;
+}
+
+export const FACTORY_PERFORMANCE: Record<string, FactoryPerformance> = {
+  nb: { otifPct: 86, avgLeadActualWeeks: 15.2, delaysOver7d: 2, qualityNote: "1 minor — shade variance on navy, accepted at 5% off" },
+  pt: { otifPct: 95, avgLeadActualWeeks: 8.3, delaysOver7d: 0, qualityNote: "none this quarter" },
+  lc: { otifPct: 98, avgLeadActualWeeks: 4.1, delaysOver7d: 0, qualityNote: "none this quarter" },
+};
+
+/** The factory-side stage sequence an own-label order walks through. */
+export const OWN_LABEL_STAGE_LABELS = [
+  "Design approved",
+  "Sample approved",
+  "Fabric booked",
+  "Factory production",
+  "Ready to ship",
+  "Shipped",
+  "Warehouse ETA",
+  "Live in stores & online",
+] as const;
+
+ORDER_TIMELINES.push(
+  {
+    id: "cp-ol-1",
+    title: "Own label — SS27 Relaxed Linen Trouser",
+    brandId: "own",
+    ref: "PO-3101",
+    stages: [
+      { label: "Design approved", status: "done", date: "2026-08-21" },
+      { label: "Sample approved", status: "done", date: "2026-09-18" },
+      { label: "Fabric booked", status: "done", date: "2026-09-25" },
+      { label: "Factory production", status: "in-progress", note: "40% complete" },
+      { label: "Ready to ship", status: "pending", date: "2026-12-18" },
+      { label: "Shipped", status: "pending", date: "2026-12-22", note: "sea, Ningbo" },
+      { label: "Warehouse ETA", status: "pending", date: "2027-01-29" },
+      { label: "Live in stores & online", status: "pending", date: "2027-02-01" },
+    ],
+  },
+  {
+    id: "cp-ol-2",
+    title: "Own label — SS27 Organic Cotton Tee range",
+    brandId: "own",
+    ref: "PO-3108",
+    stages: [
+      { label: "Design approved", status: "done", date: "2026-09-04" },
+      { label: "Sample approved", status: "blocked", note: "second fit sample due — production can't start until it's signed off" },
+      { label: "Fabric booked", status: "pending" },
+      { label: "Factory production", status: "pending" },
+      { label: "Ready to ship", status: "pending" },
+      { label: "Shipped", status: "pending", note: "road, Porto" },
+      { label: "Warehouse ETA", status: "pending", date: "2027-01-29" },
+      { label: "Live in stores & online", status: "pending", date: "2027-02-01" },
+    ],
+  },
+);

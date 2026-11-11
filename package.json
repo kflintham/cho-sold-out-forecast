@@ -2,7 +2,7 @@
   "name": "cho-sold-out-forecast",
   "private": true,
   "version": "0.1.0",
-  "description": "Elevate demo for CHO — a sold-out forecast for a multi-brand fashion boutique, on synthetic data.",
+  "description": "Elevate demo for CHO — a sold-out forecast for a multi-brand fashion retailer (online + stores), on synthetic data.",
   "type": "module",
   "scripts": {
     "dev": "vite",

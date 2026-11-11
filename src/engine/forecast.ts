@@ -19,6 +19,8 @@
 
 import {
   BRAND_BY_ID,
+  FACTORY_BY_ID,
+  PRODUCTION_POS,
   REORDERS,
   SEASONS,
   linesIn,
@@ -63,7 +65,7 @@ function resample(curve: number[], weeks: number): number[] {
   return Array.from({ length: weeks }, (_, w) => at((w + 1) / weeks) - at(w / weeks));
 }
 
-/** 3-week centred moving average — a boutique sells a line or two a week, so raw weeks are lumpy. */
+/** 3-week centred moving average — a single line sells one or two a week, so raw weeks are lumpy. */
 function smooth(xs: number[]): number[] {
   return xs.map((_, i) => {
     const win = xs.slice(Math.max(0, i - 1), i + 2);
@@ -80,9 +82,9 @@ function buildShapes(): Record<string, SeasonShape> {
   const shapes: Record<string, SeasonShape> = {};
   for (const brand of Object.values(BRAND_BY_ID)) {
     let sisters = pooled.filter((l) => l.brandId === brand.id);
-    // Too few in-stock lines at this brand: borrow the whole shop's shape.
+    // Too few in-stock lines at this brand: borrow the whole business's shape.
     if (sisters.length < 2) sisters = pooled;
-    // The whole shop's shape steadies a brand that only has a few sister lines.
+    // The whole business's shape steadies a brand that only has a few sister lines.
     const shop = average(
       pooled.map((l) => resample(normalise(l.sales), brand.seasonWeeks)),
       brand.seasonWeeks,
@@ -133,7 +135,7 @@ export interface LineForecast {
   confidence: Confidence;
   /** demand estimated across the weeks traded so far */
   demandToDate: number;
-  /** demand the shop could not serve (season so far, or whole season if finished) */
+  /** demand that could not be served (season so far, or whole season if finished) */
   lostUnits: number;
   lostRevenue: number;
   /** finished: missed demand across the season · in-season: projected by season end */
@@ -154,6 +156,10 @@ export interface LineForecast {
   projectedSellOutWeekNoReorder: number | null;
   /** customers who've asked to be told when it's back */
   waiting: number;
+  /** weeks for a re-order (or own-label repeat) to land */
+  leadWeeks: number;
+  /** who a re-order goes to — the brand, or the own-label factory */
+  source: string;
 }
 
 function estimateWith(curve: number[], line: Line, inStock: number[]): number {
@@ -164,6 +170,7 @@ function estimateWith(curve: number[], line: Line, inStock: number[]): number {
 
 export function forecastLine(line: Line): LineForecast {
   const brand = BRAND_BY_ID[line.brandId];
+  const factory = line.factoryId ? FACTORY_BY_ID[line.factoryId] : undefined;
   const shape = SHAPES[brand.id];
   const curve = shape.curve;
   const seasonWeeks = brand.seasonWeeks;
@@ -215,7 +222,12 @@ export function forecastLine(line: Line): LineForecast {
 
   // In-season projection --------------------------------------------------
   const stockNow = line.endStock[weeksTraded - 1] ?? 0;
-  const reorders = finished ? [] : REORDERS.filter((r) => r.lineId === line.id);
+  const reorders = finished
+    ? []
+    : [
+        ...REORDERS.filter((r) => r.lineId === line.id),
+        ...PRODUCTION_POS.filter((p) => p.lineId === line.id && p.landsWeek).map((p) => ({ qty: p.qty, landsWeek: p.landsWeek! })),
+      ];
   const onOrder = sum(reorders.map((r) => r.qty));
   const project = (withReorders: boolean) => {
     let lvl = stockNow;
@@ -271,6 +283,8 @@ export function forecastLine(line: Line): LineForecast {
     onOrderLandsWeek: reorders.length ? Math.min(...reorders.map((r) => r.landsWeek)) : null,
     projectedSellOutWeekNoReorder,
     waiting: waitingFor(line.id),
+    leadWeeks: factory ? factory.leadWeeks : brand.topUpLeadWeeks,
+    source: factory ? `${factory.name}, ${factory.location.split(",")[0]}` : brand.name,
   };
 }
 
@@ -290,7 +304,7 @@ export interface BuyLine {
   recommended: number;
   recommendedLow: number;
   recommendedHigh: number;
-  /** what the shop's rule of thumb would have ordered */
+  /** what the buyer's rule of thumb would have ordered */
   usualRule: number;
   cost: number;
   usualCost: number;
@@ -298,8 +312,15 @@ export interface BuyLine {
   soldOutEarly: boolean;
 }
 
-function roundBuy(units: number, brand: Brand, levers: Levers): number {
+function roundBuy(units: number, brand: Brand, levers: Levers, line?: Line): number {
   if (units <= 0) return 0;
+  // Own label: the factory's minimum per style and colour, then whole cartons.
+  if (line?.factoryId) {
+    const moq = FACTORY_BY_ID[line.factoryId].moq;
+    const carton = line.cartonQty ?? 1;
+    const floor = levers.applyMoq ? Math.ceil(moq / carton) * carton : carton;
+    return Math.max(floor, Math.round(units / carton) * carton);
+  }
   if (!levers.roundToSizeRun) return Math.round(units);
   return Math.max(brand.sizeRun, Math.round(units / brand.sizeRun) * brand.sizeRun);
 }
@@ -317,11 +338,11 @@ export function buildBuyLine(fc: LineForecast, levers: Levers): BuyLine {
   const mid = planUnits(fc.sold, fc.demand, fc, levers);
   const low = planUnits(fc.sold, fc.demandLow, fc, levers);
   const high = planUnits(fc.sold, fc.demandHigh, fc, levers);
-  const recommended = roundBuy(mid.units, fc.brand, levers);
+  const recommended = roundBuy(mid.units, fc.brand, levers, fc.line);
 
   const soldOut = fc.soldOutWeek !== null;
   const usualUnits = soldOut ? fc.line.bought * (1 + levers.usualRulePct / 100) : fc.line.bought;
-  const usualRule = roundBuy(usualUnits, fc.brand, levers);
+  const usualRule = roundBuy(usualUnits, fc.brand, levers, fc.line);
 
   return {
     fc,
@@ -330,8 +351,8 @@ export function buildBuyLine(fc: LineForecast, levers: Levers): BuyLine {
     target: mid.target,
     capped: mid.capped,
     recommended,
-    recommendedLow: roundBuy(low.units, fc.brand, levers),
-    recommendedHigh: roundBuy(high.units, fc.brand, levers),
+    recommendedLow: roundBuy(low.units, fc.brand, levers, fc.line),
+    recommendedHigh: roundBuy(high.units, fc.brand, levers, fc.line),
     usualRule,
     cost: recommended * fc.line.cost,
     usualCost: usualRule * fc.line.cost,

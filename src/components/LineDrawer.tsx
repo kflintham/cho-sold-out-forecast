@@ -51,7 +51,8 @@ export function LineDrawer() {
               <Chip tone="accent">{fc.brand.name}</Chip>
               <Chip>{l.category}</Chip>
               <Chip>£{l.rrp} RRP</Chip>
-              <Chip>{fc.canTopUp ? `brand restocks · ${fc.brand.topUpLeadWeeks} wks` : "no in-season restock"}</Chip>
+              <Chip>{fc.canTopUp ? `${fc.brand.ownLabel ? "factory repeat" : "brand restocks"} · ${fc.leadWeeks} wks` : "no in-season restock"}</Chip>
+              {fc.line.factoryId && <Chip>made by {fc.source}</Chip>}
             </div>
           </div>
           <button
@@ -100,7 +101,7 @@ export function LineDrawer() {
           <div className="mt-3 flex flex-wrap gap-1.5">
             {fc.waiting > 0 && (
               <Chip tone="accent">
-                {fc.waiting} customers waiting · {WAITLIST[l.id].online} online, {WAITLIST[l.id].inStore} in the shops
+                {fc.waiting} customers waiting · {WAITLIST[l.id].online} online, {WAITLIST[l.id].inStore} in store
               </Chip>
             )}
             {fc.onOrder > 0 && <Chip>{fc.onOrder} on re-order · lands wk {fc.onOrderLandsWeek}</Chip>}

@@ -40,7 +40,7 @@ const gbp = (n: number) => "£" + Math.round(n).toLocaleString("en-GB");
 const n0 = (n: number) => Math.round(n).toLocaleString("en-GB");
 const day = (iso: string) =>
   new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-const locName = (id: LocationId) => (id === "online" ? "web stockroom" : LOCATIONS.find((l) => l.id === id)!.name.toLowerCase());
+const locName = (id: LocationId) => (id === "online" ? "online warehouse" : LOCATIONS.find((l) => l.id === id)!.name.toLowerCase());
 
 const SEVERITY_RANK: Record<Severity, number> = { critical: 0, serious: 1, warning: 2, info: 3, good: 4 };
 
@@ -53,7 +53,7 @@ function alternativeFor(fc: LineForecast): LineForecast | undefined {
 function waitingText(fc: LineForecast): string {
   const w = WAITLIST[fc.line.id];
   if (!w) return "";
-  return `${w.online + w.inStore} customers have asked to be told when it's back (${w.online} online, ${w.inStore} in the shops)`;
+  return `${w.online + w.inStore} customers have asked to be told when it's back (${w.online} online, ${w.inStore} in store)`;
 }
 
 function inSeasonAlert(fc: LineForecast, levers: Levers): Alert {
@@ -70,7 +70,7 @@ function inSeasonAlert(fc: LineForecast, levers: Levers): Alert {
       ...base,
       kind: "sold-out-no-restock",
       severity: "critical",
-      title: `${l.name} sold out in week ${fc.soldOutWeek} of ${fc.seasonWeeks} — ${b.name} can't restock`,
+      title: `${l.name} sold out in week ${fc.soldOutWeek} of ${fc.seasonWeeks} — ${b.ownLabel ? "no repeat in time" : `${b.name} can't restock`}`,
       detail: `All ${l.bought} gone by ${day(seasonWeekDate(l.season, fc.soldOutWeek!))}. About ${n0(fc.lostUnits)} customers have already missed it, and another ${n0(toCome)} are expected before the season ends — ${gbp(fc.lostUnitsSeason * l.rrp)} of full-price sales in all. It's logged against next year's buy.${waiting ? ` ${waiting}${alt ? ` — offer them the ${alt.line.name} (${alt.stockNow} in stock)` : ""}.` : ""}`,
       working: `Sold ${l.bought} in ${fc.inStockWeeks.length} full in-stock weeks. ${pace}, so the line is tracking ≈${n0(fc.demand)} customers for the season (range ${n0(fc.demandLow)}–${n0(fc.demandHigh)}). Missed so far ≈ ${n0(fc.demandToDate)} − ${fc.sold} = ${n0(fc.lostUnits)}.`,
       valueAtStake: fc.lostUnitsSeason * l.rrp,
@@ -102,8 +102,8 @@ function inSeasonAlert(fc: LineForecast, levers: Levers): Alert {
       ...base,
       kind: "reorder-now",
       severity: "serious",
-      title: `${l.name} sold out in week ${fc.soldOutWeek} — re-order ${units} from ${b.name} now`,
-      detail: `${b.name} restocks this line in ${b.topUpLeadWeeks} weeks, so ${units} more can land in week ${landsWeek} with ${fc.seasonWeeks - landsWeek + 1} weeks of the season still to sell.${waiting ? ` ${waiting} — tell them the date.` : ""}`,
+      title: `${l.name} sold out in week ${fc.soldOutWeek} — re-order ${units} from ${fc.source} now`,
+      detail: `${fc.source} ${b.ownLabel ? "can repeat" : "restocks"} this line in ${fc.leadWeeks} weeks, so ${units} more can land in week ${landsWeek} with ${fc.seasonWeeks - landsWeek + 1} weeks of the season still to sell.${waiting ? ` ${waiting} — tell them the date.` : ""}`,
       working: `${pace}; at that pace the line is heading for ≈${n0(fc.demand)} sales this season against ${l.bought} bought. Re-order = demand still to come after week ${landsWeek - 1}${levers.countWaiting ? ", plus customers waiting" : ""}, rounded to ${b.sizeRun > 1 ? `${b.sizeRun}-piece size runs (${b.sizes})` : "units"}.`,
       valueAtStake: units * l.rrp,
     };
@@ -113,7 +113,7 @@ function inSeasonAlert(fc: LineForecast, levers: Levers): Alert {
   if (out !== null) {
     if (fc.canTopUp) {
       const { units, landsWeek } = reorderUnits(fc, levers);
-      const orderBy = out - b.topUpLeadWeeks - 1;
+      const orderBy = out - fc.leadWeeks - 1;
       const urgent = orderBy <= fc.weeksTraded + 1;
       const waiting = levers.countWaiting && fc.waiting > 0 ? ` That includes ${fc.waiting} customers already waiting.` : "";
       return {
@@ -121,11 +121,11 @@ function inSeasonAlert(fc: LineForecast, levers: Levers): Alert {
         kind: urgent ? "reorder-now" : "reorder-soon",
         severity: urgent ? "serious" : "warning",
         title: urgent
-          ? `Re-order ${units} × ${l.name} from ${b.name} this week`
+          ? `${b.ownLabel ? "Repeat" : "Re-order"} ${units} × ${l.name} ${b.ownLabel ? "at" : "from"} ${fc.source} this week`
           : `${l.name}: re-order by week ${orderBy} to stay in stock`,
         detail: urgent
-          ? `${fc.stockNow} left, selling out around week ${out} of ${fc.seasonWeeks}. ${b.name} restocks this line in ${b.topUpLeadWeeks} weeks — order now and ${units} more land in week ${landsWeek}, in time to sell before the season ends.${waiting}`
-          : `${fc.stockNow} left, on course to sell out around week ${out}. With ${b.name}'s ${b.topUpLeadWeeks}-week lead time, the order needs to go in by week ${orderBy} (${day(seasonWeekDate(l.season, orderBy))}).`,
+          ? `${fc.stockNow} left, selling out around week ${out} of ${fc.seasonWeeks}. ${fc.source} ${b.ownLabel ? "can repeat" : "restocks"} this line in ${fc.leadWeeks} weeks — order now and ${units} more land in week ${landsWeek}, in time to sell before the season ends.${waiting}`
+          : `${fc.stockNow} left, on course to sell out around week ${out}. With ${fc.source}'s ${fc.leadWeeks}-week lead time, the order needs to go in by week ${orderBy} (${day(seasonWeekDate(l.season, orderBy))}).`,
         working: `${pace}; at that pace the line is heading for ≈${n0(fc.demand)} sales this season against ${l.bought} bought. Re-order = demand still to come after week ${landsWeek - 1}, less stock left when it lands${levers.countWaiting ? ", plus customers waiting" : ""}, rounded to ${b.sizeRun > 1 ? `${b.sizeRun}-piece size runs (${b.sizes})` : "units"}.`,
         valueAtStake: units * l.rrp,
       };
@@ -135,7 +135,7 @@ function inSeasonAlert(fc: LineForecast, levers: Levers): Alert {
       kind: "hold-price",
       severity: "warning",
       title: `${l.name}: keep it at full price — it'll sell out around week ${out}`,
-      detail: `${fc.stockNow} left and ${b.name} can't restock. Leave it out of any promotion: it will clear at full price on its own. About ${n0(fc.lostUnitsSeason)} customers will miss it after it sells out — logged for next year's buy.`,
+      detail: `${fc.stockNow} left and ${b.ownLabel ? "a factory repeat can't land in time" : `${b.name} can't restock`}. Leave it out of any promotion: it will clear at full price on its own. About ${n0(fc.lostUnitsSeason)} customers will miss it after it sells out — logged for next year's buy.`,
       working: `${pace}; at that pace it's tracking ≈${n0(fc.demand)} customers this season against ${l.bought} bought.`,
       valueAtStake: fc.stockNow * l.rrp * 0.3,
     };

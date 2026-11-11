@@ -155,7 +155,7 @@ export function OverviewStock() {
         <div>
           <div className="eyebrow">Stock & sales</div>
           <h2 className="mt-1.5 text-[17px] font-semibold" style={{ color: "var(--text-primary)" }}>
-            Across both shops and the website
+            Across the stores and online
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -204,7 +204,7 @@ export function OverviewStock() {
         <StatTile
           label="Customers waiting for a line"
           value={fmtInt(waiting)}
-          sub="notify-me sign-ups and shop requests"
+          sub="notify-me sign-ups and in-store requests"
           status={waiting > 0 ? { severity: "serious", text: "see True demand" } : undefined}
         />
         <StatTile
@@ -219,7 +219,7 @@ export function OverviewStock() {
         <Card
           className="xl:col-span-3"
           title="Weekly units sold"
-          subtitle={`SS26 into AW26 · ${loc === "all" ? "both shops and online" : LOCATIONS.find((l) => l.id === loc)!.name.toLowerCase()} · full-price weeks`}
+          subtitle={`SS26 into AW26 · ${loc === "all" ? "all stores and online" : LOCATIONS.find((l) => l.id === loc)!.name.toLowerCase()} · full-price weeks`}
         >
           <AreaTrend values={weekly.values} labels={weekly.labels} height={210} valueName="units" markers={[{ index: 26, label: "AW26 lands" }]} />
         </Card>

@@ -33,6 +33,8 @@ function AddOrderForm() {
   const [ref, setRef] = useState("");
   const [brandId, setBrandId] = useState("");
   const [signedOff, setSignedOff] = useState(true);
+  const [ownLabel, setOwnLabel] = useState(false);
+  const [sampleOk, setSampleOk] = useState(true);
   const [placed, setPlaced] = useState("");
   const [dispatched, setDispatched] = useState("");
   const [delivered, setDelivered] = useState("");
@@ -43,7 +45,19 @@ function AddOrderForm() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    const stages: CpStage[] = [
+    const factoryStages: CpStage[] = [
+      { label: "Design approved", status: "done", date: todayIso },
+      sampleOk
+        ? { label: "Sample approved", status: "done", date: todayIso }
+        : { label: "Sample approved", status: "blocked", note: "production can't start until the sample is signed off" },
+      { label: "Fabric booked", status: "pending", date: placed || undefined },
+      { label: "Factory production", status: "pending" },
+      { label: "Ready to ship", status: "pending" },
+      { label: "Shipped", status: "pending", date: dispatched || undefined },
+      { label: "Warehouse ETA", status: "pending", date: delivered || undefined },
+      { label: "Live in stores & online", status: "pending" },
+    ];
+    const stages: CpStage[] = ownLabel ? factoryStages : [
       { label: "Showroom", status: "done", date: todayIso },
       signedOff
         ? { label: "Budget signed off", status: "done", date: todayIso }
@@ -52,13 +66,13 @@ function AddOrderForm() {
       { label: "Confirmed by brand", status: "pending" },
       { label: "Dispatched", status: "pending", date: dispatched || undefined },
       { label: "Delivered", status: "pending", date: delivered || undefined },
-      { label: "On the shop floor", status: "pending" },
+      { label: "Live in stores & online", status: "pending" },
     ];
     const t: Timeline = {
       id: `cp-user-${Date.now()}`,
       title: title.trim(),
       ref: ref.trim() || undefined,
-      brandId: brandId || undefined,
+      brandId: ownLabel ? "own" : brandId || undefined,
       stages,
       custom: true,
     };
@@ -67,6 +81,8 @@ function AddOrderForm() {
     setRef("");
     setBrandId("");
     setSignedOff(true);
+    setSampleOk(true);
+    setOwnLabel(false);
     setPlaced("");
     setDispatched("");
     setDelivered("");
@@ -75,7 +91,7 @@ function AddOrderForm() {
   }
 
   return (
-    <Card title="Add an order" subtitle="new orders follow the same gates — without budget sign-off the order is held automatically">
+    <Card title="Add an order" subtitle="new orders follow the same gates — without budget sign-off (or, for own label, an approved sample) the order is held automatically">
       <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <label className="flex flex-col gap-1 text-xs sm:col-span-2" style={{ color: "var(--text-secondary)" }}>
           Order name *
@@ -116,15 +132,28 @@ function AddOrderForm() {
           </label>
         ))}
         <div className="flex flex-wrap items-end justify-between gap-3 sm:col-span-2 xl:col-span-4">
-          <label className="flex items-center gap-2.5 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-            Budget signed off
-            <Toggle checked={signedOff} onChange={setSignedOff} label="Budget signed off" />
-            {!signedOff && (
-              <span className="inline-flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <label className="flex items-center gap-2.5 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+              Own label (factory order)
+              <Toggle checked={ownLabel} onChange={setOwnLabel} label="Own label factory order" />
+            </label>
+            {ownLabel ? (
+              <label className="flex items-center gap-2.5 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                Sample approved
+                <Toggle checked={sampleOk} onChange={setSampleOk} label="Sample approved" />
+              </label>
+            ) : (
+              <label className="flex items-center gap-2.5 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                Budget signed off
+                <Toggle checked={signedOff} onChange={setSignedOff} label="Budget signed off" />
+              </label>
+            )}
+            {((ownLabel && !sampleOk) || (!ownLabel && !signedOff)) && (
+              <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
                 <SeverityIcon severity="critical" size={12} /> this order will be held
               </span>
             )}
-          </label>
+          </div>
           <div className="flex items-center gap-3">
             {added && (
               <span className="text-xs font-medium" style={{ color: "var(--delta-up-good)" }}>
@@ -149,7 +178,7 @@ export function OrderTimeline() {
       <PageHeader
         eyebrow="Order planning"
         title="Order timeline"
-        sub="every order from showroom to shop floor, stage by stage — nothing goes to a brand until its budget is signed off, and every order book deadline is on the page. Click a stage to update it."
+        sub="every order from showroom (or design) to live in stores and online, stage by stage — nothing goes to a brand until its budget is signed off, no own-label production starts before the sample is approved, and every deadline is on the page. Click a stage to update it."
       />
 
       <AddOrderForm />

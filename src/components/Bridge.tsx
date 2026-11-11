@@ -73,8 +73,8 @@ export function DemandBridge({ td }: { td: TrueDemandLine }) {
     { label: "Customers waiting", value: td.waiting, colorVar: "--series-2" },
   ];
   const supply = [
-    { label: "Main shop", value: fc.line.stockByLoc.main, colorVar: "--series-4" },
-    { label: "Second shop", value: fc.line.stockByLoc.second, colorVar: "--series-3" },
+    { label: "Flagship store", value: fc.line.stockByLoc.main, colorVar: "--series-4" },
+    { label: "Second store", value: fc.line.stockByLoc.second, colorVar: "--series-3" },
     { label: "Online", value: fc.line.stockByLoc.online, colorVar: "--series-5" },
     { label: "On re-order", value: td.onOrder, colorVar: "--baseline" },
   ];
@@ -106,9 +106,9 @@ export function DemandBridge({ td }: { td: TrueDemandLine }) {
         ) : td.reorder > 0 ? (
           <>
             <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
-              → Re-order {fmtInt(td.reorder)} from {fc.brand.name}
+              → Re-order {fmtInt(td.reorder)} from {fc.source}
             </span>
-            <Chip>lands in {fc.brand.topUpLeadWeeks} wks</Chip>
+            <Chip>lands in {fc.leadWeeks} wks</Chip>
             {fc.brand.sizeRun > 1 && <Chip>{fc.brand.sizeRun}-piece size runs</Chip>}
           </>
         ) : (

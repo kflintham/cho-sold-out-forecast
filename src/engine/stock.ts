@@ -1,12 +1,13 @@
 /**
  * Stock views ported from the planning layer: true demand per line this
  * season, stock health bands, ABC classes, stock age and clearance routes —
- * all across the two shops and the website.
+ * all across the stores and online.
  */
 
 import {
   BRAND_BY_ID,
   CARRY_OVER,
+  FACTORY_BY_ID,
   LOCATION_IDS,
   SEASONS,
   TODAY,
@@ -25,8 +26,8 @@ const daysSince = (iso: string) => Math.round((TODAY.getTime() - new Date(iso + 
 // True demand — this season, per line.
 //
 //   demand still to come this season (from the season shape)
-// + customers waiting for it        (notify-me sign-ups, shop requests)
-// − stock in the shops and online
+// + customers waiting for it        (notify-me sign-ups, in-store requests)
+// − stock in store and online
 // − open re-orders with the brand    (so nothing is ordered twice)
 // = the gap → a re-order, if the brand restocks; otherwise demand to redirect
 // ---------------------------------------------------------------------------
@@ -46,11 +47,17 @@ export interface TrueDemandLine {
 
 /** Units a re-order placed this week would sell before season end (plus anyone waiting). */
 export function reorderUnits(fc: LineForecast, levers: Levers): { units: number; landsWeek: number } {
-  const landsWeek = fc.weeksTraded + 1 + fc.brand.topUpLeadWeeks;
+  const landsWeek = fc.weeksTraded + 1 + fc.leadWeeks;
   const before = fc.demand * (shareBy(fc.curve, landsWeek - 1) - shareBy(fc.curve, fc.weeksTraded));
   const stockAtLanding = Math.max(0, fc.stockNow + fc.onOrder - before);
   const after = fc.demand * (1 - shareBy(fc.curve, landsWeek - 1));
   const need = Math.max(0, after - stockAtLanding) + (levers.countWaiting ? fc.waiting : 0);
+  // Own label: a factory repeat has to meet the minimum order, in whole cartons.
+  if (fc.line.factoryId && need > 0.5) {
+    const moq = FACTORY_BY_ID[fc.line.factoryId].moq;
+    const carton = fc.line.cartonQty ?? 1;
+    return { units: Math.ceil(Math.max(need, moq) / carton) * carton, landsWeek };
+  }
   const run = fc.brand.sizeRun;
   // Round up: a re-order exists to keep the line on sale, so a part size run counts as one.
   return { units: need > 0.5 ? Math.max(run, Math.ceil((need - 0.25) / run) * run) : 0, landsWeek };
@@ -291,12 +298,12 @@ export function clearanceRoutes(items: StockItem[]): Clearance[] {
       if (s.season !== "AW26")
         return {
           item: s,
-          route: `Last season — online first at 30% off (photographed once, sold from every location), then the shop sale rail`,
+          route: `Last season — online first at 30% off (photographed once, sold from every location), then the store sale rails`,
           recover: units * s.rrp * 0.7,
         };
       return {
         item: s,
-        route: `Slow this season — feature it now, then 20% off from week ${Math.min(brand.seasonWeeks, (SEASONS.AW26.weeksTraded ?? 0) + 3)}; most stock is at ${best === "online" ? "the web stockroom" : best === "main" ? "the main shop" : "the second shop"}`,
+        route: `Slow this season — feature it now, then 20% off from week ${Math.min(brand.seasonWeeks, (SEASONS.AW26.weeksTraded ?? 0) + 3)}; most stock is at ${best === "online" ? "the online warehouse" : best === "main" ? "the flagship store" : "the second store"}`,
         recover: units * s.rrp * 0.8,
       };
     })
