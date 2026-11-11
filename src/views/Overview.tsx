@@ -30,7 +30,8 @@ export function Overview() {
   );
 
   const top = useMemo(
-    () => LAST_SEASON.filter((f) => f.lostUnits > 0).sort((a, b) => b.lostRevenue - a.lostRevenue).slice(0, 6),
+    // Branded lines only — own label is optional and has its own screen.
+    () => LAST_SEASON.filter((f) => f.lostUnits > 0 && !f.brand.ownLabel).sort((a, b) => b.lostRevenue - a.lostRevenue).slice(0, 6),
     [],
   );
 

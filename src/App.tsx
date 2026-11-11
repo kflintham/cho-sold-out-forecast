@@ -11,6 +11,7 @@ import { Scenarios } from "./views/Scenarios";
 import { OwnLabel } from "./views/OwnLabel";
 import { LeversView } from "./views/LeversView";
 import { LineDrawer } from "./components/LineDrawer";
+import { VIEW_PHASE } from "./lib/phases";
 
 const ICONS: Record<View, ReactNode> = {
   overview: (
@@ -91,10 +92,16 @@ const NAV: { view: View; label: string }[] = [
   { view: "deliveries", label: "Deliveries" },
   { view: "timeline", label: "Order timeline" },
   { view: "ownlabel", label: "Own label & factories" },
-  { view: "advisories", label: "Advisories" },
   { view: "scenarios", label: "Scenarios" },
+  { view: "advisories", label: "Advisories" },
   { view: "levers", label: "Levers" },
 ];
+
+/** Sidebar group a screen sits under — starter, full platform, or both. */
+const groupOf = (v: View) => {
+  const p = VIEW_PHASE[v];
+  return p === "all" ? "Every phase" : p <= 2 ? "Starter · Phases 1–2" : "Full platform · Phases 3–4";
+};
 
 function Brand() {
   return (
@@ -165,9 +172,20 @@ export default function App() {
       aria-label="Sections"
       className={horizontal ? "flex gap-1 overflow-x-auto" : "flex flex-col gap-0.5"}
     >
-      {NAV.map((n) => {
+      {NAV.map((n, i) => {
         const active = view === n.view;
+        const phase = VIEW_PHASE[n.view];
+        const header = !horizontal && (i === 0 || groupOf(NAV[i - 1].view) !== groupOf(n.view));
         return (
+          <div key={n.view} className={horizontal ? "contents" : ""}>
+          {header && (
+            <div
+              className={`px-3.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${i === 0 ? "" : "pt-4"}`}
+              style={{ color: "var(--side-muted)", opacity: 0.75 }}
+            >
+              {groupOf(n.view)}
+            </div>
+          )}
           <button
             key={n.view}
             type="button"
@@ -196,7 +214,17 @@ export default function App() {
                 {critical}
               </span>
             )}
+            {phase !== "all" && (
+              <span
+                className={`tnum text-[10px] font-semibold ${n.view === "advisories" ? "" : "ml-auto"}`}
+                style={{ color: "var(--side-muted)", opacity: 0.7 }}
+                title={`Phase ${phase}`}
+              >
+                P{phase}
+              </span>
+            )}
           </button>
+          </div>
         );
       })}
     </nav>
@@ -205,12 +233,12 @@ export default function App() {
   return (
     <div className="flex min-h-full">
       <aside
-        className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col justify-between p-4 lg:flex"
+        className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col justify-between gap-4 overflow-y-auto p-4 lg:flex"
         style={{ background: "var(--side-bg)" }}
       >
         <div>
           <Brand />
-          <div className="mt-6">
+          <div className="mt-5">
             <Nav />
           </div>
         </div>

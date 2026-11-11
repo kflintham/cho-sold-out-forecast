@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import type { Severity } from "../engine/alerts";
+import { useApp } from "../state/AppState";
+import { PHASE_NAME, VIEW_PHASE, phaseLabel, phaseTier } from "../lib/phases";
 import { Sparkline } from "./charts";
 
 /** View header in the proposal deck's idiom: eyebrow, display headline, gradient rule. */
@@ -14,10 +16,26 @@ export function PageHeader({
   sub?: string;
   right?: ReactNode;
 }) {
+  const { view } = useApp();
+  const phase = VIEW_PHASE[view];
+  const tier = phaseTier(phase);
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <div className="eyebrow">{eyebrow}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold tracking-wide"
+            style={{
+              background: tier === "Full platform" ? "var(--surface-2)" : "var(--grad)",
+              color: tier === "Full platform" ? "var(--text-secondary)" : "#ffffff",
+              border: tier === "Full platform" ? "1px solid var(--border)" : "none",
+            }}
+            title={phase === "all" ? "Included with every phase" : PHASE_NAME[phase]}
+          >
+            {phase === "all" ? "Every phase" : `${phaseLabel(phase)} · ${tier}`}
+          </span>
+          <span className="eyebrow">{eyebrow}</span>
+        </div>
         <h1 className="mt-1.5 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
           {title}
         </h1>

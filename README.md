@@ -56,6 +56,19 @@ ten weeks in.
 10. **Levers** — share of missed demand to back, waiting customers, brand momentum, planned
    sell-through, step-up cap, size-run rounding, usual rule, aged-stock threshold, budget.
 
+## Phases
+
+Every screen carries its phase. Phases 1–2 are the starter package — they answer the sold-out
+question directly; phases 3–4 make up the full platform. Advisories and levers come with every phase.
+
+| Phase | Screens | Package |
+| --- | --- | --- |
+| 1 · See it all in one place | Overview | Starter |
+| 2 · Sold-out forecast & true demand | Sold-out forecast, True demand, SS27 buy plan | Starter |
+| 3 · Deliveries & production | Deliveries, Order timeline, Own label & factories | Full platform |
+| 4 · Scenario planning with AI | Scenarios | Full platform |
+| Every phase | Advisories, Levers | Both |
+
 ## How the estimate works
 
 1. Learn each brand's season shape from its lines that **never** sold out (smoothed, and blended
