@@ -6,6 +6,7 @@ import { GroupedColumns } from "../components/charts";
 import { Card, PageHeader, SeverityIcon, StatTile } from "../components/ui";
 import { SeasonChart } from "../components/SeasonChart";
 import { SeasonBar } from "./SoldOut";
+import { OverviewStock } from "./OverviewStock";
 import { fmtDate, fmtInt, fmtMoney, fmtPct } from "../lib/format";
 
 const kFmt = (v: number) => `£${v.toFixed(1)}k`;
@@ -62,7 +63,7 @@ export function Overview() {
           label="AW26 so far"
           value={`${aw.soldOut} sold out`}
           sub={`${awHeading} more heading that way · ${fmtMoney(aw.lostRevenue)} missed to date`}
-          status={{ severity: "serious", text: "see This season" }}
+          status={{ severity: "serious", text: "see Advisories" }}
         />
       </div>
 
@@ -126,7 +127,7 @@ export function Overview() {
               <SeasonChart fc={again} height={150} />
             </div>
             <div className="mt-2 flex flex-wrap gap-x-4 text-xs font-medium">
-              <button type="button" style={{ color: "var(--accent)" }} onClick={() => setView("inseason")}>
+              <button type="button" style={{ color: "var(--accent)" }} onClick={() => setView("advisories")}>
                 See everything this season →
               </button>
               <button type="button" style={{ color: "var(--accent)" }} onClick={() => setOpenLine(again.line.id)}>
@@ -136,6 +137,8 @@ export function Overview() {
           </div>
         </div>
       </Card>
+
+      <OverviewStock />
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">

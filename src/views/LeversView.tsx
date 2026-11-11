@@ -1,5 +1,6 @@
 import { useApp } from "../state/AppState";
 import {
+  AGED_OPTIONS,
   LOST_SHARE_OPTIONS,
   SELL_THROUGH_OPTIONS,
   STEP_UP_OPTIONS,
@@ -70,6 +71,11 @@ export function LeversView() {
             }
           />
           <LeverRow
+            name="Count customers waiting for a line"
+            description="Notify-me sign-ups online and requests taken in the shops count as demand on a re-order — they're customers who've already said yes."
+            control={<Toggle checked={levers.countWaiting} onChange={(v) => setLevers({ countWaiting: v })} label="Count waiting customers" />}
+          />
+          <LeverRow
             name="Apply brand momentum"
             description="Lift or trim each brand by how it's trending — e.g. Maison Ondine +12%, Kestrel & Co flat."
             control={<Toggle checked={levers.applyTrend} onChange={(v) => setLevers({ applyTrend: v })} label="Apply brand momentum" />}
@@ -100,6 +106,11 @@ export function LeversView() {
             name="Your rule of thumb today"
             description="What you'd add to last season's order when a line sold out — shown alongside the plan for comparison."
             control={<Segmented options={USUAL_RULE_OPTIONS} value={levers.usualRulePct} onChange={(v) => setLevers({ usualRulePct: v })} />}
+          />
+          <LeverRow
+            name="Aged stock threshold"
+            description="Stock on hand longer than this is flagged as aged and routed to clearance."
+            control={<Segmented options={AGED_OPTIONS} value={levers.agedDays} onChange={(v) => setLevers({ agedDays: v })} />}
           />
           <LeverRow
             name="SS27 open-to-buy"

@@ -3,7 +3,11 @@ import { useApp, type View } from "./state/AppState";
 import { Overview } from "./views/Overview";
 import { SoldOut } from "./views/SoldOut";
 import { BuyPlan } from "./views/BuyPlan";
-import { InSeason } from "./views/InSeason";
+import { TrueDemand } from "./views/TrueDemand";
+import { Deliveries } from "./views/Deliveries";
+import { OrderTimeline } from "./views/OrderTimeline";
+import { Advisories } from "./views/Advisories";
+import { Scenarios } from "./views/Scenarios";
 import { LeversView } from "./views/LeversView";
 import { LineDrawer } from "./components/LineDrawer";
 
@@ -29,7 +33,35 @@ const ICONS: Record<View, ReactNode> = {
       <path d="M4.5 2.5h7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   ),
-  inseason: (
+  demand: (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+      <rect x="1.5" y="8" width="3" height="6.5" rx="1" fill="currentColor" opacity="0.55" />
+      <rect x="6.5" y="4.5" width="3" height="10" rx="1" fill="currentColor" />
+      <rect x="11.5" y="1.5" width="3" height="13" rx="1" fill="currentColor" opacity="0.55" />
+    </svg>
+  ),
+  deliveries: (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+      <path d="M1.5 3.5h8v7.5h-8z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M9.5 6h3l2 2.5V11h-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx="4.5" cy="12.5" r="1.6" fill="currentColor" />
+      <circle cx="12" cy="12.5" r="1.6" fill="currentColor" />
+    </svg>
+  ),
+  timeline: (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+      <path d="M1.5 8h13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="3.2" cy="8" r="2" fill="currentColor" />
+      <circle cx="8" cy="8" r="2" fill="var(--side-bg)" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="12.8" cy="8" r="2" fill="var(--side-bg)" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  ),
+  scenarios: (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+      <path d="M2 8h4l1.5-3 2 6L11 8h3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  advisories: (
     <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
       <path d="M8 1.8a4.4 4.4 0 0 1 4.4 4.4c0 3 .9 4 1.6 4.7H2c.7-.7 1.6-1.7 1.6-4.7A4.4 4.4 0 0 1 8 1.8z" fill="currentColor" />
       <path d="M6.4 13.2a1.7 1.7 0 0 0 3.2 0" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
@@ -47,8 +79,12 @@ const ICONS: Record<View, ReactNode> = {
 const NAV: { view: View; label: string }[] = [
   { view: "overview", label: "Overview" },
   { view: "soldout", label: "Sold-out forecast" },
+  { view: "demand", label: "True demand" },
   { view: "buy", label: "SS27 buy plan" },
-  { view: "inseason", label: "This season" },
+  { view: "deliveries", label: "Deliveries" },
+  { view: "timeline", label: "Order timeline" },
+  { view: "advisories", label: "Advisories" },
+  { view: "scenarios", label: "Scenarios" },
   { view: "levers", label: "Levers" },
 ];
 
@@ -144,7 +180,7 @@ export default function App() {
             )}
             <span style={{ color: active ? "#ef9256" : "var(--side-muted)" }}>{ICONS[n.view]}</span>
             {n.label}
-            {n.view === "inseason" && critical > 0 && (
+            {n.view === "advisories" && critical > 0 && (
               <span
                 className="tnum ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold"
                 style={{ background: "var(--status-critical)", color: "#fff" }}
@@ -205,7 +241,11 @@ export default function App() {
           {view === "overview" && <Overview />}
           {view === "soldout" && <SoldOut />}
           {view === "buy" && <BuyPlan />}
-          {view === "inseason" && <InSeason />}
+          {view === "demand" && <TrueDemand />}
+          {view === "deliveries" && <Deliveries />}
+          {view === "timeline" && <OrderTimeline />}
+          {view === "advisories" && <Advisories />}
+          {view === "scenarios" && <Scenarios />}
           {view === "levers" && <LeversView />}
         </main>
       </div>

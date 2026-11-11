@@ -3,19 +3,22 @@ import { SEASONS, TODAY } from "../data/dataset";
 import { FORECAST_BY_ID, THIS_SEASON, seasonTotals } from "../engine/forecast";
 import type { Alert, Severity } from "../engine/alerts";
 import { SeasonChart } from "../components/SeasonChart";
-import { Card, PageHeader, SEVERITY_META, SeverityBadge, StatTile } from "../components/ui";
+import { Card, Chip, PageHeader, SEVERITY_META, SeverityBadge, StatTile } from "../components/ui";
 import { fmtDate, fmtInt, fmtMoney } from "../lib/format";
 
 const SECTIONS: { severity: Severity; blurb: string }[] = [
   { severity: "critical", blurb: "sold out and the brand can't restock — the demand is logged for next year" },
-  { severity: "serious", blurb: "re-order this week while the brand still has stock" },
-  { severity: "warning", blurb: "a decision worth making now — protect full price, or move slow stock early" },
-  { severity: "good", blurb: "deliberately no action" },
+  { severity: "serious", blurb: "act this week — a re-order while the brand has stock, an order book about to close" },
+  { severity: "warning", blurb: "a transfer, a full-price hold or an early markdown beats waiting" },
+  { severity: "good", blurb: "deliberately no action — so nobody re-orders into stock that's already coming" },
 ];
+
+const CHART_KINDS = new Set(["sold-out-no-restock", "reorder-now", "reorder-soon", "hold-price", "slow", "covered"]);
 
 function AlertCard({ alert, chart }: { alert: Alert; chart: boolean }) {
   const { setOpenLine } = useApp();
-  const fc = FORECAST_BY_ID[alert.lineIds[0]];
+  const fc = alert.lineIds.length ? FORECAST_BY_ID[alert.lineIds[0]] : undefined;
+  const showChart = chart && fc && CHART_KINDS.has(alert.kind);
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
@@ -28,7 +31,7 @@ function AlertCard({ alert, chart }: { alert: Alert; chart: boolean }) {
             {alert.detail}
           </p>
         </div>
-        {alert.valueAtStake > 0 && alert.severity !== "warning" && (
+        {alert.valueAtStake > 0 && (alert.severity === "critical" || alert.severity === "serious") && (
           <div className="shrink-0 text-right">
             <div className="tnum text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
               {fmtMoney(alert.valueAtStake)}
@@ -39,9 +42,9 @@ function AlertCard({ alert, chart }: { alert: Alert; chart: boolean }) {
           </div>
         )}
       </div>
-      {chart && (
+      {showChart && (
         <div className="mt-3">
-          <SeasonChart fc={fc} height={150} />
+          <SeasonChart fc={fc!} height={150} />
         </div>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -56,15 +59,23 @@ function AlertCard({ alert, chart }: { alert: Alert; chart: boolean }) {
             {alert.working}
           </p>
         </details>
-        <button type="button" className="text-xs font-medium" style={{ color: "var(--accent)" }} onClick={() => setOpenLine(fc.line.id)}>
-          Open line
-        </button>
+        {fc && alert.lineIds.length === 1 && (
+          <button type="button" className="text-xs font-medium" style={{ color: "var(--accent)" }} onClick={() => setOpenLine(fc.line.id)}>
+            Open line
+          </button>
+        )}
+        {alert.lineIds.length > 1 &&
+          alert.lineIds.slice(0, 6).map((id) => (
+            <button key={id} type="button" onClick={() => setOpenLine(id)}>
+              <Chip>{FORECAST_BY_ID[id]?.line.name ?? id}</Chip>
+            </button>
+          ))}
       </div>
     </Card>
   );
 }
 
-export function InSeason() {
+export function Advisories() {
   const { alerts } = useApp();
   const t = seasonTotals("AW26");
   const season = SEASONS.AW26;
@@ -74,8 +85,8 @@ export function InSeason() {
     <div className="space-y-5">
       <PageHeader
         eyebrow={`${season.label} · week ${season.weeksTraded} traded · as of ${fmtDate(TODAY.toISOString().slice(0, 10))}`}
-        title="This season, while there's still time"
-        sub="The same engine runs on this season's sales every week. It spots a line heading for a sell-out early enough to re-order (where the brand can restock), tells you not to discount what will sell anyway, and records the demand you can't serve so next year's order includes it."
+        title="Advisories"
+        sub="plain English, with the working shown. The engine runs on this season's sales every week: it spots a sell-out early enough to re-order or transfer, tells you not to discount what will sell anyway, and records the demand you can't serve so next year's order includes it. In production these also arrive as a Monday-morning email."
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

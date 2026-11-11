@@ -112,9 +112,11 @@ export function SeasonChart({
                 strokeWidth={1}
                 strokeDasharray="3 3"
               />
-              <text x={padL + fc.weeksTraded * slot + 4} y={padT - 8} fontSize={10.5} fill="var(--text-muted)">
-                today
-              </text>
+              {soldOut !== fc.weeksTraded && (
+                <text x={padL + fc.weeksTraded * slot + 4} y={padT - 8} fontSize={10.5} fill="var(--text-muted)">
+                  today
+                </text>
+              )}
             </g>
           )}
 

@@ -63,6 +63,34 @@ export const BRANDS: Brand[] = [
 
 export const BRAND_BY_ID: Record<string, Brand> = Object.fromEntries(BRANDS.map((b) => [b.id, b]));
 
+// ---------------------------------------------------------------------------
+// Where the shop sells — two shops and the website.
+// ---------------------------------------------------------------------------
+
+export type LocationId = "main" | "second" | "online";
+
+export interface Location {
+  id: LocationId;
+  name: string;
+  short: string;
+}
+
+export const LOCATIONS: Location[] = [
+  { id: "main", name: "Main shop", short: "Main" },
+  { id: "second", name: "Second shop", short: "Second" },
+  { id: "online", name: "Online", short: "Online" },
+];
+
+export const LOCATION_IDS: LocationId[] = ["main", "second", "online"];
+
+/** Share of each season's sales by location — online keeps growing. */
+const SEASON_LOC_SHARE: Record<SeasonId, Record<LocationId, number>> = {
+  SS26: { main: 0.52, second: 0.26, online: 0.22 },
+  AW26: { main: 0.46, second: 0.24, online: 0.3 },
+};
+
+export type ByLocation = Record<LocationId, number>;
+
 export interface TopUp {
   /** season week the re-order landed */
   week: number;
@@ -87,6 +115,12 @@ export interface Line {
   /** stock left at the end of each week */
   endStock: number[];
   topUps: TopUp[];
+  /** this line's share of sales by location */
+  locShare: ByLocation;
+  /** units sold per week, by location */
+  salesByLoc: Record<LocationId, number[]>;
+  /** stock left now (or at season end), by location */
+  stockByLoc: ByLocation;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +172,10 @@ interface LineSeed {
   demand: number;
   core?: boolean;
   forceSales?: number[];
+  /** nudges to the season's location mix, e.g. a line that sells online */
+  loc?: Partial<ByLocation>;
+  /** where the remaining stock actually sits (must sum to stock left) */
+  stockLoc?: ByLocation;
 }
 
 const SHIRT = "Shirts";
@@ -197,12 +235,13 @@ const SEEDS: LineSeed[] = [
   { code: "NV-2730", name: "Sund Merino Roll Neck", brandId: "nv", category: KNIT, season: "AW26", rrp: 125, bought: 20, demand: 17, core: true },
   { code: "MO-2710", name: "Céline Velvet Midi", brandId: "mo", category: DRESS, season: "AW26", rrp: 215, bought: 12, demand: 34, forceSales: [3, 4, 3, 2] },
   { code: "MO-2720", name: "Margot Jersey Wrap", brandId: "mo", category: DRESS, season: "AW26", rrp: 175, bought: 12, demand: 12 },
-  { code: "AD-2710", name: "Rigid Straight — Indigo", brandId: "ad", category: TROUSER, season: "AW26", rrp: 145, bought: 30, demand: 34, core: true },
+  { code: "AD-2710", name: "Rigid Straight — Indigo", brandId: "ad", category: TROUSER, season: "AW26", rrp: 145, bought: 30, demand: 34, core: true, stockLoc: { main: 1, second: 9, online: 2 } },
+  { code: "AD-2720", name: "Relaxed Taper — Washed Black", brandId: "ad", category: TROUSER, season: "AW26", rrp: 145, bought: 18, demand: 32, core: true },
   { code: "AD-2730", name: "Sherpa Trucker Jacket", brandId: "ad", category: OUTER, season: "AW26", rrp: 195, bought: 14, demand: 26 },
   { code: "KC-2710", name: "Harbour Waxed Jacket", brandId: "kc", category: OUTER, season: "AW26", rrp: 275, bought: 16, demand: 36 },
   { code: "KC-2720", name: "Quilted Liner Jacket", brandId: "kc", category: OUTER, season: "AW26", rrp: 165, bought: 24, demand: 11 },
   { code: "SR-2710", name: "Tilda Leather Tote — Burgundy", brandId: "sr", category: ACC, season: "AW26", rrp: 205, bought: 16, demand: 30, core: true },
-  { code: "SR-2730", name: "Cashmere Blend Scarf", brandId: "sr", category: ACC, season: "AW26", rrp: 95, bought: 30, demand: 27 },
+  { code: "SR-2730", name: "Cashmere Blend Scarf", brandId: "sr", category: ACC, season: "AW26", rrp: 95, bought: 30, demand: 27, loc: { online: 0.45 } },
 ];
 
 function simulate(seed: LineSeed): Line {
@@ -244,6 +283,28 @@ function simulate(seed: LineSeed): Line {
     }
   }
 
+  // Location split: a season's mix, nudged per line, then each week's units
+  // handed out to whichever location is furthest behind its share.
+  const mix = { ...SEASON_LOC_SHARE[seed.season], ...seed.loc };
+  const mixTotal = LOCATION_IDS.reduce((a, id) => a + mix[id], 0);
+  const locShare = Object.fromEntries(LOCATION_IDS.map((id) => [id, mix[id] / mixTotal])) as ByLocation;
+  const salesByLoc = { main: [], second: [], online: [] } as Record<LocationId, number[]>;
+  const cum: ByLocation = { main: 0, second: 0, online: 0 };
+  let cumTotal = 0;
+  for (const units of sales) {
+    const week: ByLocation = { main: 0, second: 0, online: 0 };
+    for (let u = 0; u < units; u++) {
+      cumTotal += 1;
+      const pick = LOCATION_IDS.reduce((best, id) =>
+        cumTotal * locShare[id] - cum[id] > cumTotal * locShare[best] - cum[best] ? id : best,
+      );
+      cum[pick] += 1;
+      week[pick] += 1;
+    }
+    LOCATION_IDS.forEach((id) => salesByLoc[id].push(week[id]));
+  }
+  const stockByLoc = seed.stockLoc ?? splitByShare(stock, locShare);
+
   return {
     id: `${seed.season}-${seed.code}`,
     code: seed.code,
@@ -258,7 +319,20 @@ function simulate(seed: LineSeed): Line {
     sales,
     endStock,
     topUps,
+    locShare,
+    salesByLoc,
+    stockByLoc,
   };
+}
+
+/** Split whole units by share (largest remainder). */
+export function splitByShare(units: number, share: ByLocation): ByLocation {
+  const raw = LOCATION_IDS.map((id) => units * share[id]);
+  const out = raw.map(Math.floor);
+  let left = units - out.reduce((a, b) => a + b, 0);
+  const order = raw.map((r, i) => [r - Math.floor(r), i] as const).sort((a, b) => b[0] - a[0]);
+  for (const [, i] of order) if (left-- > 0) out[i] += 1;
+  return { main: out[0], second: out[1], online: out[2] };
 }
 
 export const LINES: Line[] = SEEDS.map(simulate);
@@ -277,3 +351,223 @@ export function seasonWeekDate(season: SeasonId, week: number): string {
 
 /** SS27 open-to-buy agreed with the bank manager, at cost. */
 export const SS27_BUDGET = 31000;
+
+// ---------------------------------------------------------------------------
+// Customers waiting — "notify me when back" sign-ups online and requests
+// taken on the shop floor, per AW26 line. In production these come from the
+// Shopify back-in-stock app and the EPOS customer-order screen.
+// ---------------------------------------------------------------------------
+
+export interface Waitlist {
+  online: number;
+  inStore: number;
+}
+
+export const WAITLIST: Record<string, Waitlist> = {
+  "AW26-HF-2711": { online: 11, inStore: 7 },
+  "AW26-MO-2710": { online: 6, inStore: 3 },
+  "AW26-KC-2710": { online: 8, inStore: 4 },
+  "AW26-NV-2710": { online: 2, inStore: 1 },
+  "AW26-SR-2710": { online: 3, inStore: 1 },
+};
+
+export const waitingFor = (lineId: string) => {
+  const w = WAITLIST[lineId];
+  return w ? w.online + w.inStore : 0;
+};
+
+// ---------------------------------------------------------------------------
+// Open re-orders with brands (stock bought, not yet in the shop).
+// ---------------------------------------------------------------------------
+
+export type ReorderStage = "placed" | "confirmed" | "dispatched";
+
+export const REORDER_STAGES: ReorderStage[] = ["placed", "confirmed", "dispatched"];
+
+export const REORDER_STAGE_LABEL: Record<ReorderStage, string> = {
+  placed: "Order placed",
+  confirmed: "Confirmed by brand",
+  dispatched: "Dispatched",
+};
+
+export interface Reorder {
+  id: string;
+  ref: string;
+  lineId: string;
+  qty: number;
+  /** AW26 season week it lands in the shop */
+  landsWeek: number;
+  stage: ReorderStage;
+}
+
+export const REORDERS: Reorder[] = [
+  // Covers AD-2720's coming gap — the "already on its way, don't re-order" story.
+  { id: "ro-1", ref: "RO-118", lineId: "AW26-AD-2720", qty: 12, landsWeek: 12, stage: "dispatched" },
+  { id: "ro-2", ref: "RO-121", lineId: "AW26-NV-2730", qty: 4, landsWeek: 14, stage: "confirmed" },
+];
+
+// ---------------------------------------------------------------------------
+// Older stock still on hand from previous seasons (SS26 leftovers are
+// derived from the sales data; these are older).
+// ---------------------------------------------------------------------------
+
+export interface CarryOver {
+  id: string;
+  code: string;
+  name: string;
+  brandId: string;
+  category: string;
+  season: string;
+  rrp: number;
+  cost: number;
+  stockByLoc: ByLocation;
+  /** days since the stock was delivered */
+  ageDays: number;
+}
+
+export const CARRY_OVER: CarryOver[] = [
+  { id: "AW25-KC-2520", code: "KC-2520", name: "Quilted Gilet — Moss", brandId: "kc", category: OUTER, season: "AW25", rrp: 150, cost: 60, stockByLoc: { main: 1, second: 5, online: 0 }, ageDays: 420 },
+  { id: "AW25-NV-2530", code: "NV-2530", name: "Shawl Collar Cardigan", brandId: "nv", category: KNIT, season: "AW25", rrp: 165, cost: 66, stockByLoc: { main: 3, second: 0, online: 1 }, ageDays: 395 },
+  { id: "AW25-MO-2540", code: "MO-2540", name: "Velvet Slip Dress — Navy", brandId: "mo", category: DRESS, season: "AW25", rrp: 150, cost: 60, stockByLoc: { main: 0, second: 1, online: 2 }, ageDays: 380 },
+];
+
+// ---------------------------------------------------------------------------
+// Brand scorecard — delivery performance is seeded here (in production it
+// reconciles from delivery notes against order confirmations); sell-through
+// and sell-out rates are computed live.
+// ---------------------------------------------------------------------------
+
+export interface BrandPerformance {
+  /** share of deliveries on time and in full, % */
+  otifPct: number;
+  avgDaysLate: number;
+  /** share of ordered units actually delivered, % */
+  completePct: number;
+  /** re-order value (at cost) for carriage-paid delivery */
+  carriagePaidMin: number;
+  note: string;
+}
+
+export const BRAND_PERFORMANCE: Record<string, BrandPerformance> = {
+  hf: { otifPct: 92, avgDaysLate: 3, completePct: 98, carriagePaidMin: 0, note: "AW26 delivered 4 days early" },
+  nv: { otifPct: 84, avgDaysLate: 6, completePct: 95, carriagePaidMin: 400, note: "AW26 drop 2 short-shipped in M" },
+  mo: { otifPct: 71, avgDaysLate: 12, completePct: 90, carriagePaidMin: 0, note: "SS26 and AW26 both landed late — 2 full-price weeks lost each time" },
+  ad: { otifPct: 96, avgDaysLate: 1, completePct: 100, carriagePaidMin: 350, note: "re-orders in 2 weeks, reliably" },
+  kc: { otifPct: 88, avgDaysLate: 5, completePct: 97, carriagePaidMin: 0, note: "none this season" },
+  sr: { otifPct: 94, avgDaysLate: 2, completePct: 99, carriagePaidMin: 300, note: "none this season" },
+};
+
+// ---------------------------------------------------------------------------
+// SS27 delivery drops — when each brand ships the season, and how much of
+// the order comes in each drop.
+// ---------------------------------------------------------------------------
+
+export interface Drop {
+  label: string;
+  date: string;
+  share: number;
+}
+
+export const SS27_DROPS: Record<string, Drop[]> = {
+  hf: [{ label: "Drop 1", date: "2027-02-08", share: 0.6 }, { label: "Drop 2", date: "2027-03-22", share: 0.4 }],
+  nv: [{ label: "Drop 1", date: "2027-02-15", share: 0.5 }, { label: "Drop 2", date: "2027-04-05", share: 0.5 }],
+  mo: [{ label: "Single drop", date: "2027-03-01", share: 1 }],
+  ad: [{ label: "Core", date: "2027-01-25", share: 0.7 }, { label: "Seasonal", date: "2027-03-08", share: 0.3 }],
+  kc: [{ label: "Single drop", date: "2027-02-22", share: 1 }],
+  sr: [{ label: "Drop 1", date: "2027-02-01", share: 0.5 }, { label: "Drop 2", date: "2027-04-12", share: 0.5 }],
+};
+
+// ---------------------------------------------------------------------------
+// Order timeline — the SS27 orders, stage by stage. The rule that matters:
+// nothing is placed with a brand until its budget is signed off.
+// ---------------------------------------------------------------------------
+
+export type CpStatus = "done" | "in-progress" | "pending" | "blocked";
+
+export interface CpStage {
+  label: string;
+  status: CpStatus;
+  /** ISO date — actual for done stages, target for the rest */
+  date?: string;
+  note?: string;
+}
+
+export interface OrderTimeline {
+  id: string;
+  title: string;
+  brandId?: string;
+  ref?: string;
+  stages: CpStage[];
+  /** added by the user in this session (removable) */
+  custom?: boolean;
+}
+
+export const CP_STAGE_LABELS = [
+  "Showroom",
+  "Budget signed off",
+  "Order placed",
+  "Confirmed by brand",
+  "Dispatched",
+  "Delivered",
+  "On the shop floor",
+] as const;
+
+export const ORDER_TIMELINES: OrderTimeline[] = [
+  {
+    id: "cp-mo",
+    title: "Maison Ondine — SS27 collection",
+    brandId: "mo",
+    stages: [
+      { label: "Showroom", status: "done", date: "2026-10-20", note: "Paris" },
+      { label: "Budget signed off", status: "done", date: "2026-11-06" },
+      { label: "Order placed", status: "in-progress", date: "2026-11-20", note: "book closes 20 Nov" },
+      { label: "Confirmed by brand", status: "pending", date: "2026-12-04" },
+      { label: "Dispatched", status: "pending", date: "2027-02-22" },
+      { label: "Delivered", status: "pending", date: "2027-03-01" },
+      { label: "On the shop floor", status: "pending", date: "2027-03-03" },
+    ],
+  },
+  {
+    id: "cp-kc",
+    title: "Kestrel & Co — SS27 collection",
+    brandId: "kc",
+    stages: [
+      { label: "Showroom", status: "done", date: "2026-10-28", note: "agent visit" },
+      { label: "Budget signed off", status: "blocked", note: "outerwear plan is over its share of budget — trim or move money first" },
+      { label: "Order placed", status: "pending", date: "2026-11-25" },
+      { label: "Confirmed by brand", status: "pending" },
+      { label: "Dispatched", status: "pending" },
+      { label: "Delivered", status: "pending", date: "2027-02-22" },
+      { label: "On the shop floor", status: "pending" },
+    ],
+  },
+  {
+    id: "cp-hf",
+    title: "Harlow & Finch — SS27 collection",
+    brandId: "hf",
+    stages: [
+      { label: "Showroom", status: "done", date: "2026-11-03", note: "London" },
+      { label: "Budget signed off", status: "in-progress", note: "sold-out lines stepped up — check before Thursday" },
+      { label: "Order placed", status: "pending", date: "2026-11-27" },
+      { label: "Confirmed by brand", status: "pending" },
+      { label: "Dispatched", status: "pending" },
+      { label: "Delivered", status: "pending", date: "2027-02-08" },
+      { label: "On the shop floor", status: "pending" },
+    ],
+  },
+  {
+    id: "cp-ro118",
+    title: "Ardent Denim — AW26 re-order, Relaxed Taper",
+    brandId: "ad",
+    ref: "RO-118",
+    stages: [
+      { label: "Showroom", status: "done", note: "n/a — re-order" },
+      { label: "Budget signed off", status: "done", date: "2026-10-30" },
+      { label: "Order placed", status: "done", date: "2026-10-30" },
+      { label: "Confirmed by brand", status: "done", date: "2026-11-02" },
+      { label: "Dispatched", status: "in-progress", date: "2026-11-11", note: "with the courier" },
+      { label: "Delivered", status: "pending", date: "2026-11-16" },
+      { label: "On the shop floor", status: "pending", date: "2026-11-17" },
+    ],
+  },
+];

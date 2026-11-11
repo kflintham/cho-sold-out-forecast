@@ -19,8 +19,10 @@
 
 import {
   BRAND_BY_ID,
+  REORDERS,
   SEASONS,
   linesIn,
+  waitingFor,
   type Brand,
   type Line,
   type SeasonId,
@@ -144,6 +146,14 @@ export interface LineForecast {
   projectedLeftover: number;
   /** a re-order is possible: the brand restocks this line in season */
   canTopUp: boolean;
+  /** units on open re-orders with the brand */
+  onOrder: number;
+  /** season week the open re-order lands */
+  onOrderLandsWeek: number | null;
+  /** when it would sell out if the open re-order didn't exist */
+  projectedSellOutWeekNoReorder: number | null;
+  /** customers who've asked to be told when it's back */
+  waiting: number;
 }
 
 function estimateWith(curve: number[], line: Line, inStock: number[]): number {
@@ -205,9 +215,23 @@ export function forecastLine(line: Line): LineForecast {
 
   // In-season projection --------------------------------------------------
   const stockNow = line.endStock[weeksTraded - 1] ?? 0;
+  const reorders = finished ? [] : REORDERS.filter((r) => r.lineId === line.id);
+  const onOrder = sum(reorders.map((r) => r.qty));
+  const project = (withReorders: boolean) => {
+    let lvl = stockNow;
+    let out: number | null = null;
+    for (let w = weeksTraded; w < seasonWeeks; w++) {
+      if (withReorders) for (const r of reorders) if (r.landsWeek === w + 1) lvl += r.qty;
+      lvl -= demand * curve[w];
+      if (lvl <= 0 && out === null && w + 1 < seasonWeeks) out = w + 1;
+    }
+    return out;
+  };
+  const projectedSellOutWeekNoReorder = finished || stockNow === 0 ? null : project(false);
   let projectedSellOutWeek: number | null = null;
   let level = stockNow;
   for (let w = weeksTraded; w < seasonWeeks; w++) {
+    for (const r of reorders) if (r.landsWeek === w + 1) level += r.qty;
     level -= demand * curve[w];
     // Selling out in the final week is a good buy, not an early sell-out.
     if (level <= 0 && projectedSellOutWeek === null && w + 1 < seasonWeeks) projectedSellOutWeek = w + 1;
@@ -217,7 +241,7 @@ export function forecastLine(line: Line): LineForecast {
   const remainingDemand = demand * (1 - tradedShare);
   const lostUnitsSeason = finished
     ? lostUnits
-    : lostUnits + Math.max(0, remainingDemand - stockNow);
+    : lostUnits + Math.max(0, remainingDemand - stockNow - onOrder);
 
   return {
     line,
@@ -243,6 +267,10 @@ export function forecastLine(line: Line): LineForecast {
     projectedSellOutWeek,
     projectedLeftover,
     canTopUp: brand.topUp && line.core,
+    onOrder,
+    onOrderLandsWeek: reorders.length ? Math.min(...reorders.map((r) => r.landsWeek)) : null,
+    projectedSellOutWeekNoReorder,
+    waiting: waitingFor(line.id),
   };
 }
 

@@ -21,6 +21,10 @@ export interface Levers {
   usualRulePct: number;
   /** SS27 open-to-buy, at cost */
   budget: number;
+  /** count customers waiting for a sold-out line as demand on a re-order */
+  countWaiting: boolean;
+  /** stock older than this is flagged as aged, days */
+  agedDays: number;
 }
 
 export const DEFAULT_LEVERS: Levers = {
@@ -32,7 +36,15 @@ export const DEFAULT_LEVERS: Levers = {
   roundToSizeRun: true,
   usualRulePct: 40,
   budget: 31000,
+  countWaiting: true,
+  agedDays: 180,
 };
+
+export const AGED_OPTIONS = [
+  { value: 120, label: "120 days" },
+  { value: 180, label: "180 days" },
+  { value: 270, label: "270 days" },
+];
 
 export const LOST_SHARE_OPTIONS = [
   { value: 50, label: "50%" },

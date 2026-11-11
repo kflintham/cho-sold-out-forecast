@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useApp } from "../state/AppState";
-import { NEXT_SEASON, SEASONS } from "../data/dataset";
+import { LOCATIONS, NEXT_SEASON, SEASONS, WAITLIST } from "../data/dataset";
 import { FORECAST_BY_ID } from "../engine/forecast";
 import { SeasonChart } from "./SeasonChart";
 import { Chip, SeverityBadge } from "./ui";
@@ -77,6 +77,35 @@ export function LineDrawer() {
             </div>
           ))}
         </dl>
+
+        <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+          {LOCATIONS.map((loc) => {
+            const sold = l.salesByLoc[loc.id].reduce((a, b) => a + b, 0);
+            return (
+              <div key={loc.id} className="rounded-lg p-2" style={{ background: "var(--surface-2)" }}>
+                <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {loc.name}
+                </div>
+                <div className="tnum mt-0.5 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  {l.stockByLoc[loc.id]} left
+                </div>
+                <div className="tnum text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                  {sold} sold · {Math.round(l.locShare[loc.id] * 100)}%
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {(fc.waiting > 0 || fc.onOrder > 0) && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {fc.waiting > 0 && (
+              <Chip tone="accent">
+                {fc.waiting} customers waiting · {WAITLIST[l.id].online} online, {WAITLIST[l.id].inStore} in the shops
+              </Chip>
+            )}
+            {fc.onOrder > 0 && <Chip>{fc.onOrder} on re-order · lands wk {fc.onOrderLandsWeek}</Chip>}
+          </div>
+        )}
 
         <h3 className="mt-5 mb-1 text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
           The season, week by week
